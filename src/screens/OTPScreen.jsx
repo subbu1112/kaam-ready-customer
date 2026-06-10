@@ -3,6 +3,9 @@ import { sb } from '../lib/supabase'
 import Btn from '../components/Btn'
 import Card from '../components/Card'
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY
+
 export default function OTPScreen({ setScreen, showToast }) {
   const [otp,  setOtp]  = useState(['','','','','',''])
   const [busy, setBusy] = useState(false)
@@ -18,10 +21,26 @@ export default function OTPScreen({ setScreen, showToast }) {
     if (code.length < 6) { showToast('Enter all 6 digits'); return }
     setBusy(true)
     const phone = localStorage.getItem('kr_phone') || ''
-    const email = phone + '@kaamready.in'
-    const { error } = await sb.auth.verifyOtp({ email, token: code, type: 'email' })
-    setBusy(false)
-    if (error) { showToast('Invalid OTP — try again'); return }
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+        body: JSON.stringify({ phone, otp: code }),
+      })
+      const data = await res.json()
+      if (!res.ok) { showToast(data.error || 'Invalid OTP'); return }
+
+      const { error } = await sb.auth.verifyOtp({
+        token_hash: data.token_hash,
+        type: 'email',
+      })
+      if (error) { showToast('Auth error: ' + error.message); return }
+      // App.jsx will detect session change and route to home
+    } catch {
+      showToast('Network error — try again')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (

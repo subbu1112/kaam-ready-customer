@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { sb } from '../lib/supabase'
 import Btn from '../components/Btn'
 import Card from '../components/Card'
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export default function LoginScreen({ setScreen, showToast }) {
   const [phone, setPhone] = useState('')
@@ -10,13 +12,22 @@ export default function LoginScreen({ setScreen, showToast }) {
   async function send() {
     if (phone.length < 10) { showToast('Enter a valid 10-digit number'); return }
     setBusy(true)
-    const email = phone + '@kaamready.in'
-    localStorage.setItem('kr_phone', phone)
-    const { error } = await sb.auth.signInWithOtp({ email })
-    setBusy(false)
-    if (error) { showToast('Error: ' + error.message); return }
-    setScreen('otp')
-    showToast('OTP sent!')
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+        body: JSON.stringify({ phone }),
+      })
+      const data = await res.json()
+      if (!res.ok) { showToast(data.error || 'Failed to send OTP'); return }
+      localStorage.setItem('kr_phone', phone)
+      setScreen('otp')
+      showToast('OTP sent via SMS!')
+    } catch {
+      showToast('Network error — try again')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
