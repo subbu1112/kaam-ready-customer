@@ -10,6 +10,7 @@ import BookingsScreen from './screens/BookingsScreen'
 import ProfileScreen  from './screens/ProfileScreen'
 import TabBar         from './components/TabBar'
 import Toast          from './components/Toast'
+import TermsModal, { termsAccepted, acceptTerms } from './components/TermsModal'
 
 export default function App() {
   const [screen,   setScreen]   = useState('login')
@@ -19,6 +20,7 @@ export default function App() {
   const [selSvc,   setSelSvc]   = useState(null)
   const [toast,    setToast]    = useState(null)
   const [bookings, setBookings] = useState([])
+  const [showTerms, setShowTerms] = useState(false)
 
   useEffect(() => {
     sb.auth.getSession().then(({ data }) => {
@@ -34,6 +36,7 @@ export default function App() {
     const { data } = await sb.from('profiles').select('city').eq('id', uid).single()
     if (data?.city) { setCity(data.city); setScreen('main') }
     else setScreen('city')
+    if (!termsAccepted()) setShowTerms(true)
     // Tag this user in OneSignal for targeted notifications
     try {
       await OneSignal.sendTags({ user_id: uid })
@@ -65,6 +68,7 @@ export default function App() {
       {tab === 'bookings' && <BookingsScreen {...ctx} setTab={setTab} />}
       {tab === 'profile'  && <ProfileScreen  {...ctx} setTab={setTab} />}
       <TabBar tab={tab} setTab={setTab} />
+      {showTerms && <TermsModal onAccept={() => { acceptTerms(); setShowTerms(false) }} />}
       {toast && <Toast msg={toast} />}
     </div>
   )

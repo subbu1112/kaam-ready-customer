@@ -9,11 +9,6 @@ const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY
 const RZP_KEY_ID    = import.meta.env.VITE_RAZORPAY_KEY_ID
 
-const MOCK_WORKERS = [
-  { id:'w1', name:'Raju Kumar',  skill:'Electrician', rating:4.8, dist:'0.8 km', eta:'6 min', jobs:342, ico:'⚡' },
-  { id:'w2', name:'Suresh M.',   skill:'Plumber',     rating:4.9, dist:'0.5 km', eta:'4 min', jobs:521, ico:'🔧' },
-]
-
 // Load Razorpay checkout script once
 function loadRazorpayScript() {
   return new Promise((resolve) => {
@@ -49,19 +44,23 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     if (error) { showToast('Error: '+error.message); setStep(0); return }
     setBookId(data.id)
     const ch = sb.channel('booking-'+data.id)
-      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'bookings', filter:'id=eq.'+data.id }, payload => {
-        if (payload.new.status==='assigned' && payload.new.worker) {
-          setWorker(payload.new.worker); setStep(2)
-          showToast(payload.new.worker.name+' is on the way! 🎉')
+      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'bookings', filter:'id=eq.'+data.id }, async payload => {
+        if (payload.new.status==='assigned' && payload.new.worker_id) {
+          clearTimeout(timer.current)
+          // Fetch real worker profile from DB
+          const { data: wData } = await sb.from('workers').select('*').eq('id', payload.new.worker_id).single()
+          const w = wData || payload.new.worker || {}
+          setWorker(w); setStep(2)
+          showToast((w.name||'A worker')+' is on the way! 🎉')
           ch.unsubscribe()
         }
       }).subscribe()
+    // 3-minute timeout — no fake workers, just show "no workers available"
     timer.current = setTimeout(async () => {
-      const w = MOCK_WORKERS[0]
-      await sb.from('bookings').update({ status:'assigned', worker:w, worker_id:w.id }).eq('id', data.id)
-      setWorker(w); setStep(2)
-      showToast(w.name+' is on the way! 🎉')
-    }, 4000)
+      ch.unsubscribe()
+      await sb.from('bookings').update({ status:'cancelled' }).eq('id', data.id)
+      setStep(4) // no-workers state
+    }, 180000)
   }
 
   async function completeJob() {
@@ -85,7 +84,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     setTimeout(() => { setStep(0); setDesc(''); setAddr(''); setRating(0); setTab('home') }, 1200)
   }
 
-  function cancel() { clearTimeout(timer.current); setStep(0); setTab('home') }
+  function cancel() { clearTimeout(timer.current); setStep(0); setWorker(null); setTab('home') }
 
   return (
     <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
@@ -206,6 +205,19 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           </div>
         </Card>
       </>}
+
+      {step===4 && (
+        <Card style={{ textAlign:'center', padding:32 }}>
+          <div style={{ fontSize:52, marginBottom:12 }}>😔</div>
+          <p style={{ fontWeight:800, fontSize:18 }}>No Workers Available</p>
+          <p style={{ fontSize:13, color:'#888', margin:'8px 0 20px' }}>No workers in {city} accepted this job right now. Try again in a few minutes.</p>
+          <Btn label="Try Again" onClick={() => { setStep(0); setWorker(null) }} />
+          <button onClick={() => setTab('home')}
+            style={{ display:'block', width:'100%', margin:'10px 0 0', background:'none', border:'none', color:'#aaa', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+            Go Home
+          </button>
+        </Card>
+      )}
     </div>
   )
 }

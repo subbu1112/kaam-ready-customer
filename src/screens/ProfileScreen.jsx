@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { sb } from '../lib/supabase'
 import Card from '../components/Card'
 import Btn  from '../components/Btn'
+import AvatarUpload from '../components/AvatarUpload'
 
 const YL='#FFF8D6', YD='#B8900A', Y='#F5C000'
 
@@ -64,13 +65,13 @@ function PaymentModal({ user, onClose, showToast }) {
 
 export default function ProfileScreen({ user, city, bookings, showToast, setTab }) {
   const [modal, setModal] = useState(null)
+  const [avatarUrl, setAvatarUrl] = useState(null)
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
 
   const menus = [
     ['📋','My Bookings',     '#D1FAE5', () => setTab('bookings')],
     ['📍','Change City',     '#DBEAFE', () => showToast('Coming soon!')],
     ['🏠','Saved Addresses', '#FFF8D6', () => showToast('Coming soon!')],
-    ['🎁','Refer & Earn',    '#EDE9FE', () => showToast('Coming soon!')],
     ['💳','Payment Methods', '#F3F4F6', () => setModal('payment')],
     ['❓','Help & Support',  '#F3F4F6', () => showToast('Call 1800-KR-HELP')],
     ['📜','Privacy Policy',  '#F3F4F6', () => showToast('Coming soon!')],
@@ -80,7 +81,10 @@ export default function ProfileScreen({ user, city, bookings, showToast, setTab 
     <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
       {modal==='payment' && <PaymentModal user={user} onClose={() => setModal(null)} showToast={showToast} />}
       <Card style={{ textAlign:'center', padding:24 }}>
-        <div style={{ width:72, height:72, borderRadius:20, background:YL, display:'flex', alignItems:'center', justifyContent:'center', fontSize:36, margin:'0 auto 14px' }}>👤</div>
+        <div style={{ marginBottom:14 }}>
+          <AvatarUpload userId={user?.id} currentUrl={avatarUrl} table="profiles"
+            onUploaded={url => setAvatarUrl(url)} />
+        </div>
         <p style={{ fontWeight:800, fontSize:18 }}>{displayName}</p>
         {city && <p style={{ fontSize:13, color:'#888', marginTop:4 }}>📍 {city}, Karnataka</p>}
         {user?.phone && <p style={{ fontSize:13, color:'#888', marginTop:2 }}>📱 {user.phone}</p>}
