@@ -34,6 +34,11 @@ export default function App() {
     const { data } = await sb.from('profiles').select('city').eq('id', uid).single()
     if (data?.city) { setCity(data.city); setScreen('main') }
     else setScreen('city')
+    // Tag this user in OneSignal for targeted notifications
+    try {
+      await OneSignal.sendTags({ user_id: uid })
+      await OneSignal.setExternalUserId(uid)
+    } catch(e) { console.warn('OneSignal tag error:', e) }
   }
 
   async function loadBookings() {
