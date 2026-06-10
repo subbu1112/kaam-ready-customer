@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { sb } from '../lib/supabase'
 import Card from '../components/Card'
 import Btn  from '../components/Btn'
+import MapView from '../components/MapView'
 
 const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', GREEN='#22c55e'
 const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL
@@ -76,48 +77,6 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     if (bookId && rating > 0) await sb.from('bookings').update({ rating, payment_status: 'pending_verification' }).eq('id', bookId)
     showToast('Payment page opened — complete payment there ✓')
   }
-    setPayLoading(true)
-    try {
-      // Create Razorpay order via Edge Function
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
-        body: JSON.stringify({ booking_id: bookId, amount }),
-      })
-      const order = await res.json()
-      if (!res.ok) { showToast('Payment error. Try cash.'); setPayLoading(false); return }
-
-      const loaded = await loadRazorpayScript()
-      if (!loaded) { showToast('Payment gateway unavailable'); setPayLoading(false); return }
-
-      const options = {
-        key: order.key_id || RZP_KEY_ID,
-        amount: order.amount,
-        currency: order.currency || 'INR',
-        name: 'Kaam Ready',
-        description: `${selSvc?.lbl} Service`,
-        order_id: order.order_id,
-        prefill: {
-          name: user?.user_metadata?.full_name || '',
-          contact: user?.phone || '',
-          email: user?.email || '',
-        },
-        theme: { color: Y },
-        handler: async (response) => {
-          // Payment success — update booking
-          if (bookId && rating > 0) await sb.from('bookings').update({ rating, payment_status: 'paid', payment_id: response.razorpay_payment_id }).eq('id', bookId)
-          showToast('Payment done! Thank you ⭐')
-          await loadBookings()
-          setTimeout(() => { setStep(0); setDesc(''); setAddr(''); setRating(0); setTab('home') }, 1200)
-        },
-        modal: { ondismiss: () => setPayLoading(false) },
-      }
-      new window.Razorpay(options).open()
-    } catch (e) {
-      showToast('Payment failed: '+e.message)
-    }
-    setPayLoading(false)
-  }
 
   async function payCash() {
     if (bookId) await sb.from('bookings').update({ rating: rating || 0, payment_status: 'cash', payment_method: 'cash' }).eq('id', bookId)
@@ -176,11 +135,10 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
       )}
 
       {step===2 && worker && <>
-        <div style={{ background:'linear-gradient(135deg,#e8f4e8,#c3e6cb)', borderRadius:16, height:150, position:'relative', overflow:'hidden' }}>
-          <div style={{ position:'absolute', top:8, left:10, background:'rgba(255,255,255,.9)', fontSize:11, fontWeight:700, padding:'4px 10px', borderRadius:8 }}>📍 {city}</div>
-          <div style={{ position:'absolute', top:'40%', left:'44%', fontSize:26 }}>📍</div>
-          <div style={{ position:'absolute', top:'20%', left:'26%', fontSize:18, animation:'float 2s ease-in-out infinite' }}>🔵</div>
-        </div>
+        <MapView
+          workerLat={worker.lat} workerLng={worker.lng}
+          style={{ borderRadius:16, height:180, overflow:'hidden', marginBottom:0 }}
+        />
         <Card style={{ border:'2px solid '+Y }}>
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12 }}>
             <p style={{ fontWeight:800, fontSize:15 }}>✅ Worker Assigned!</p>
