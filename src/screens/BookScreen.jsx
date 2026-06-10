@@ -71,6 +71,11 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
   }
 
   async function payWithRazorpay() {
+    // Open Razorpay payment page (API integration coming soon)
+    window.open('https://rzp.io/rzp/Gd1FRwo', '_blank')
+    if (bookId && rating > 0) await sb.from('bookings').update({ rating, payment_status: 'pending_verification' }).eq('id', bookId)
+    showToast('Payment page opened — complete payment there ✓')
+  }
     setPayLoading(true)
     try {
       // Create Razorpay order via Edge Function
