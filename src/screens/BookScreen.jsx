@@ -1,23 +1,42 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { sb } from '../lib/supabase'
 import Card from '../components/Card'
 import Btn  from '../components/Btn'
 
 const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', GREEN='#22c55e'
+const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY
+const RZP_KEY_ID    = import.meta.env.VITE_RAZORPAY_KEY_ID
+
 const MOCK_WORKERS = [
   { id:'w1', name:'Raju Kumar',  skill:'Electrician', rating:4.8, dist:'0.8 km', eta:'6 min', jobs:342, ico:'⚡' },
   { id:'w2', name:'Suresh M.',   skill:'Plumber',     rating:4.9, dist:'0.5 km', eta:'4 min', jobs:521, ico:'🔧' },
 ]
 
+// Load Razorpay checkout script once
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) { resolve(true); return }
+    const s = document.createElement('script')
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    s.onload = () => resolve(true)
+    s.onerror = () => resolve(false)
+    document.body.appendChild(s)
+  })
+}
+
 export default function BookScreen({ user, city, selSvc, setTab, showToast, loadBookings }) {
-  const [step,   setStep]   = useState(0)
-  const [desc,   setDesc]   = useState('')
-  const [addr,   setAddr]   = useState('')
-  const [worker, setWorker] = useState(null)
-  const [amount, setAmount] = useState(0)
-  const [rating, setRating] = useState(0)
-  const [bookId, setBookId] = useState(null)
+  const [step,       setStep]       = useState(0)
+  const [desc,       setDesc]       = useState('')
+  const [addr,       setAddr]       = useState('')
+  const [worker,     setWorker]     = useState(null)
+  const [amount,     setAmount]     = useState(0)
+  const [rating,     setRating]     = useState(0)
+  const [bookId,     setBookId]     = useState(null)
+  const [payLoading, setPayLoading] = useState(false)
   const timer = useRef(null)
+
+  useEffect(() => { loadRazorpayScript() }, [])
 
   async function findWorkers() {
     setStep(1)
@@ -51,9 +70,53 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     setStep(3)
   }
 
-  async function submitPayment() {
-    if (bookId && rating > 0) await sb.from('bookings').update({ rating }).eq('id', bookId)
-    showToast('Payment done! Thank you ⭐')
+  async function payWithRazorpay() {
+    setPayLoading(true)
+    try {
+      // Create Razorpay order via Edge Function
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+        body: JSON.stringify({ booking_id: bookId, amount }),
+      })
+      const order = await res.json()
+      if (!res.ok) { showToast('Payment error. Try cash.'); setPayLoading(false); return }
+
+      const loaded = await loadRazorpayScript()
+      if (!loaded) { showToast('Payment gateway unavailable'); setPayLoading(false); return }
+
+      const options = {
+        key: order.key_id || RZP_KEY_ID,
+        amount: order.amount,
+        currency: order.currency || 'INR',
+        name: 'Kaam Ready',
+        description: `${selSvc?.lbl} Service`,
+        order_id: order.order_id,
+        prefill: {
+          name: user?.user_metadata?.full_name || '',
+          contact: user?.phone || '',
+          email: user?.email || '',
+        },
+        theme: { color: Y },
+        handler: async (response) => {
+          // Payment success — update booking
+          if (bookId && rating > 0) await sb.from('bookings').update({ rating, payment_status: 'paid', payment_id: response.razorpay_payment_id }).eq('id', bookId)
+          showToast('Payment done! Thank you ⭐')
+          await loadBookings()
+          setTimeout(() => { setStep(0); setDesc(''); setAddr(''); setRating(0); setTab('home') }, 1200)
+        },
+        modal: { ondismiss: () => setPayLoading(false) },
+      }
+      new window.Razorpay(options).open()
+    } catch (e) {
+      showToast('Payment failed: '+e.message)
+    }
+    setPayLoading(false)
+  }
+
+  async function payCash() {
+    if (bookId) await sb.from('bookings').update({ rating: rating || 0, payment_status: 'cash', payment_method: 'cash' }).eq('id', bookId)
+    showToast('Cash payment recorded ✓')
     await loadBookings()
     setTimeout(() => { setStep(0); setDesc(''); setAddr(''); setRating(0); setTab('home') }, 1200)
   }
@@ -165,8 +228,14 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             ))}
           </div>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={submitPayment} style={{ flex:1, background:Y, border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer' }}>Pay ₹{amount} UPI</button>
-            <button onClick={submitPayment} style={{ flex:1, background:'#1C1C1E', color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer' }}>Pay Cash</button>
+            <button onClick={payWithRazorpay} disabled={payLoading}
+              style={{ flex:1, background:Y, border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer', opacity:payLoading?.6:1 }}>
+              {payLoading ? 'Opening...' : `Pay ₹${amount} Online`}
+            </button>
+            <button onClick={payCash}
+              style={{ flex:1, background:'#1C1C1E', color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer' }}>
+              Pay Cash
+            </button>
           </div>
         </Card>
       </>}
