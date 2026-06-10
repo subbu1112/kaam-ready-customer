@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { sb } from '../lib/supabase'
 import { SERVICES } from '../constants'
 import Card from '../components/Card'
 import Btn  from '../components/Btn'
@@ -10,12 +11,29 @@ const STATUS_STYLE = {
   assigned:   { bg:'#DBEAFE', c:'#1E40AF', label:'Active'       },
   cancelled:  { bg:'#FEE2E2', c:'#991B1B', label:'Cancelled'    },
 }
-export default function BookingsScreen({ bookings, loadBookings, setTab }) {
-  useEffect(() => { loadBookings() }, [])
+export default function BookingsScreen({ user, setTab }) {
+  const [bookings, setBookings] = useState([])
+  const [loading,  setLoading]  = useState(true)
+
+  useEffect(() => { if (user?.id) load(user.id) }, [user?.id])
+
+  async function load(uid) {
+    setLoading(true)
+    const { data, error } = await sb.from('bookings').select('*')
+      .eq('user_id', uid).order('created_at', { ascending: false })
+    if (data) setBookings(data)
+    setLoading(false)
+  }
+
   return (
     <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
       <p style={{ fontWeight:800, fontSize:22, padding:'4px 0 0' }}>My Bookings</p>
-      {bookings.length===0 ? (
+      {loading ? (
+        <Card style={{ textAlign:'center', padding:'40px 24px' }}>
+          <div style={{ fontSize:32, marginBottom:10 }}>⏳</div>
+          <p style={{ color:'#888', fontSize:14 }}>Loading your bookings...</p>
+        </Card>
+      ) : bookings.length===0 ? (
         <Card style={{ textAlign:'center', padding:'48px 24px' }}>
           <div style={{ fontSize:52, marginBottom:14 }}>📋</div>
           <p style={{ fontWeight:800, fontSize:17 }}>No bookings yet</p>
@@ -37,7 +55,15 @@ export default function BookingsScreen({ bookings, loadBookings, setTab }) {
               </div>
               <span style={{ background:st.bg, color:st.c, fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:8 }}>{st.label}</span>
             </div>
-            {b.worker?.name && <p style={{ fontSize:13, color:'#555', marginBottom:4 }}>👷 {b.worker.name}</p>}
+            {b.worker?.name && (
+              <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f9f9f9', borderRadius:10, padding:'8px 10px', marginBottom:8 }}>
+                <div style={{ width:32, height:32, borderRadius:10, background:'#FFF8D6', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>👷</div>
+                <div>
+                  <p style={{ fontSize:13, fontWeight:700 }}>{b.worker.name}</p>
+                  <p style={{ fontSize:11, color:'#888' }}>{b.worker.skill} · ★ {b.worker.rating||'5.0'}</p>
+                </div>
+              </div>
+            )}
             <p style={{ fontSize:12, color:'#aaa', marginBottom:b.amount?10:0 }}>📍 {b.address||b.city}</p>
             {b.amount>0 && (
               <div style={{ display:'flex', justifyContent:'space-between', paddingTop:10, borderTop:'1px solid #f5f5f5' }}>

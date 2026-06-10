@@ -145,22 +145,26 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:8 }}>On the way</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:12, paddingBottom:12, borderBottom:'1px solid #f0f0f0', marginBottom:12 }}>
-            <div style={{ width:52, height:52, borderRadius:14, background:YL, display:'flex', alignItems:'center', justifyContent:'center', fontSize:26 }}>{worker.ico||'👷'}</div>
-            <div>
-              <p style={{ fontSize:14, fontWeight:700 }}>{worker.name}</p>
-              <p style={{ fontSize:12, color:'#888' }}>{worker.skill} · ★ {worker.rating} · {worker.jobs} jobs</p>
+            <div style={{ width:60, height:60, borderRadius:16, background:YL, display:'flex', alignItems:'center', justifyContent:'center', fontSize:30, flexShrink:0 }}>{worker.ico||'👷'}</div>
+            <div style={{ flex:1 }}>
+              <p style={{ fontSize:15, fontWeight:800 }}>{worker.name}</p>
+              <p style={{ fontSize:12, color:'#888', margin:'2px 0' }}>{worker.skill}</p>
+              <div style={{ display:'flex', gap:6, marginTop:4 }}>
+                <span style={{ background:'#FFF8D6', color:'#B8900A', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:6 }}>★ {worker.rating||'5.0'}</span>
+                <span style={{ background:'#f0f0f0', color:'#555', fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:6 }}>{worker.jobs||0} jobs</span>
+                <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:6 }}>✓ Verified</span>
+              </div>
             </div>
+            <a href={'tel:+91'+worker.phone} style={{ width:40, height:40, borderRadius:12, background:GREEN, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, textDecoration:'none', flexShrink:0 }}>📞</a>
           </div>
-          <div style={{ display:'flex', gap:10, marginBottom:14 }}>
-            <div style={{ flex:1, textAlign:'center' }}>
-              <div style={{ fontSize:20, fontWeight:800, color:GREEN }}>{worker.eta}</div>
-              <div style={{ fontSize:11, color:'#888' }}>ETA</div>
-            </div>
-            <div style={{ width:1, background:'#f0f0f0' }} />
-            <div style={{ flex:1, textAlign:'center' }}>
-              <div style={{ fontSize:20, fontWeight:800 }}>{worker.dist}</div>
-              <div style={{ fontSize:11, color:'#888' }}>Distance</div>
-            </div>
+          <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+            {[['🕐','ETA',worker.eta||'10 min'],['📍','Distance',worker.dist||'1.2 km'],['💼','Experience',(worker.jobs||0)+' jobs']].map(([ico,k,v])=>(
+              <div key={k} style={{ flex:1, textAlign:'center', background:'#f9f9f9', borderRadius:10, padding:'8px 4px' }}>
+                <div style={{ fontSize:16 }}>{ico}</div>
+                <div style={{ fontSize:13, fontWeight:800, marginTop:2 }}>{v}</div>
+                <div style={{ fontSize:10, color:'#aaa' }}>{k}</div>
+              </div>
+            ))}
           </div>
           <Btn label="Mark Job as Complete ✓" variant="dark" onClick={completeJob} />
         </Card>
