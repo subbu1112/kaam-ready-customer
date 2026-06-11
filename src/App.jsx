@@ -11,6 +11,7 @@ import ProfileScreen  from './screens/ProfileScreen'
 import TabBar         from './components/TabBar'
 import Toast          from './components/Toast'
 import TermsModal, { termsAccepted, acceptTerms } from './components/TermsModal'
+import { SERVICES } from './constants'
 
 export default function App() {
   const [screen,   setScreen]   = useState('login')
@@ -21,6 +22,21 @@ export default function App() {
   const [toast,    setToast]    = useState(null)
   const [bookings, setBookings] = useState([])
   const [showTerms, setShowTerms] = useState(false)
+  const [resume,   setResume]   = useState(null)
+
+  // Restore an in-progress booking after refresh / returning from a UPI app
+  useEffect(() => {
+    if (!user?.id) return
+    sb.from('bookings').select('*').eq('user_id', user.id)
+      .in('status', ['assigned','priced']).order('created_at', { ascending:false }).limit(1)
+      .then(({ data }) => {
+        const b = data?.[0]
+        if (!b) return
+        setResume(b)
+        setSelSvc(SERVICES.find(x => x.id === b.service_id) || { id:b.service_id, lbl:b.service, ico:'🔧', range:'' })
+        setTab('book')
+      })
+  }, [user?.id])
 
   useEffect(() => {
     sb.auth.getSession().then(({ data }) => {
@@ -53,7 +69,7 @@ export default function App() {
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2600) }
 
-  const ctx = { user, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast, setScreen, setTab }
+  const ctx = { user, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast, setScreen, setTab, resume, clearResume: () => setResume(null) }
 
   if (screen === 'login') return <><LoginScreen {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
   if (screen === 'otp')   return <><OTPScreen   {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>

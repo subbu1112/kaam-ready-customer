@@ -8,7 +8,7 @@ import { serviceFloor } from '../constants'
 const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', GREEN='#22c55e'
 
 // Flow: 0 describe · 1 searching · 2 worker working · 3 approve price & pay · 4 no workers · 5 waiting confirm · 6 done
-export default function BookScreen({ user, city, selSvc, setTab, showToast, loadBookings }) {
+export default function BookScreen({ user, city, selSvc, setTab, showToast, loadBookings, resume, clearResume }) {
   const [step,    setStep]    = useState(0)
   const [desc,    setDesc]    = useState('')
   const [addr,    setAddr]    = useState('')
@@ -20,17 +20,10 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
 
   useEffect(() => () => { clearTimeout(timer.current); if (chanRef.current) chanRef.current.unsubscribe() }, [])
 
-  async function findWorkers() {
-    setStep(1)
-    showToast('Finding workers nearby...')
-    const { data, error } = await sb.from('bookings').insert({
-      user_id: user?.id, service: selSvc?.lbl, service_id: selSvc?.id,
-      description: desc||'(No description)', address: addr||(city+', Karnataka'), city, status:'searching',
-    }).select().single()
-    if (error) { showToast('Error: '+error.message); setStep(0); return }
-    setBooking(data)
-    const ch = sb.channel('booking-'+data.id)
-      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'bookings', filter:'id=eq.'+data.id }, async payload => {
+  function subscribeBooking(id) {
+    if (chanRef.current) chanRef.current.unsubscribe()
+    const ch = sb.channel('booking-'+id)
+      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'bookings', filter:'id=eq.'+id }, async payload => {
         const b = payload.new
         setBooking(prev => ({ ...(prev||{}), ...b }))
         if (b.status==='assigned' && b.worker_id && !workerRef.current) {
@@ -41,7 +34,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           setWorker(w); setStep(2)
           showToast((w.name||'A worker')+' is on the way! 🎉')
         }
-        if (b.status==='priced' && b.amount) {
+        if (b.status==='priced' && b.amount && b.payment_status!=='claimed') {
           setStep(3)
           showToast('Work done — review and pay ₹'+b.amount)
         }
@@ -52,9 +45,42 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
         }
       }).subscribe()
     chanRef.current = ch
+    return ch
+  }
+
+  // Resume an in-progress booking (after refresh or returning from a UPI app)
+  useEffect(() => {
+    if (!resume?.id) return
+    let cancelled = false
+    ;(async () => {
+      setBooking(resume)
+      if (resume.worker_id) {
+        const { data: w } = await sb.from('workers').select('*').eq('id', resume.worker_id).single()
+        if (cancelled) return
+        if (w) { workerRef.current = w; setWorker(w) }
+      }
+      if (resume.payment_status==='claimed') setStep(5)
+      else if (resume.status==='priced')     setStep(3)
+      else                                   setStep(2)
+      subscribeBooking(resume.id)
+      clearResume && clearResume()
+    })()
+    return () => { cancelled = true }
+  }, [resume?.id])
+
+  async function findWorkers() {
+    setStep(1)
+    showToast('Finding workers nearby...')
+    const { data, error } = await sb.from('bookings').insert({
+      user_id: user?.id, service: selSvc?.lbl, service_id: selSvc?.id,
+      description: desc||'(No description)', address: addr||(city+', Karnataka'), city, status:'searching',
+    }).select().single()
+    if (error) { showToast('Error: '+error.message); setStep(0); return }
+    setBooking(data)
+    subscribeBooking(data.id)
     // 3-minute timeout — no fake workers, just show "no workers available"
     timer.current = setTimeout(async () => {
-      ch.unsubscribe(); chanRef.current = null
+      if (chanRef.current) { chanRef.current.unsubscribe(); chanRef.current = null }
       await sb.from('bookings').update({ status:'cancelled' }).eq('id', data.id)
       setStep(4) // no-workers state
     }, 180000)
@@ -99,7 +125,6 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
   function cancel() { resetAll(); setTab('home') }
 
   const floor = serviceFloor(selSvc?.id)
-  const wMax  = worker?.price_max || selSvc?.top || 1000
   const dots  = step>=5 ? 3 : step===4 ? 1 : Math.min(step,3)
 
   return (
@@ -174,8 +199,8 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           </div>
           <div style={{ background:'#f9f9f9', borderRadius:12, padding:'12px 14px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontSize:13, color:'#555' }}>Price range</span>
-              <span style={{ fontSize:16, fontWeight:800 }}>₹{floor} – ₹{wMax}</span>
+              <span style={{ fontSize:13, color:'#555' }}>Starting price</span>
+              <span style={{ fontSize:16, fontWeight:800 }}>from ₹{floor}</span>
             </div>
             <p style={{ fontSize:11, color:'#aaa', marginTop:4 }}>The worker will send the final price when the work is done. You approve it before paying via UPI.</p>
           </div>
@@ -195,8 +220,8 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             </div>
           )}
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-            <span style={{ fontSize:13, color:'#888' }}>Allowed range</span>
-            <span style={{ fontSize:13, fontWeight:600, color:'#888' }}>₹{floor} – ₹{wMax}</span>
+            <span style={{ fontSize:13, color:'#888' }}>Minimum charge</span>
+            <span style={{ fontSize:13, fontWeight:600, color:'#888' }}>₹{floor}</span>
           </div>
           <div style={{ display:'flex', justifyContent:'space-between', paddingTop:10, borderTop:'2px solid #f0f0f0' }}>
             <span style={{ fontSize:16, fontWeight:800 }}>Total to pay</span>

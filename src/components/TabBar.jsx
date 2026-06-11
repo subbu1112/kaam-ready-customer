@@ -2,7 +2,7 @@ const YD = '#B8900A'
 const TABS = [
   { id: 'home',     ico: '🏠', lbl: 'Home'    },
   { id: 'search',   ico: '🔍', lbl: 'Find'    },
-  { id: 'bookings', ico: '📋', lbl: 'Jobs'    },
+  { id: 'bookings', ico: '📋', lbl: 'Bookings' },
   { id: 'profile',  ico: '👤', lbl: 'Me'      },
 ]
 export default function TabBar({ tab, setTab }) {
