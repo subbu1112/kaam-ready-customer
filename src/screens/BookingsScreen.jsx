@@ -9,6 +9,7 @@ const STATUS_STYLE = {
   completed: { bg:'#D1FAE5', c:'#065F46', label:'✓ Done'       },
   searching:  { bg:'#FFF8D6', c:'#B8900A', label:'Searching...' },
   assigned:   { bg:'#DBEAFE', c:'#1E40AF', label:'Active'       },
+  priced:     { bg:'#FEF3C7', c:'#92400E', label:'💳 Payment Due' },
   cancelled:  { bg:'#FEE2E2', c:'#991B1B', label:'Cancelled'    },
 }
 export default function BookingsScreen({ user, setTab }) {
