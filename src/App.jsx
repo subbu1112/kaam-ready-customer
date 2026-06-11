@@ -23,6 +23,7 @@ export default function App() {
   const [bookings, setBookings] = useState([])
   const [showTerms, setShowTerms] = useState(false)
   const [resume,   setResume]   = useState(null)
+  const [rebookWorker, setRebookWorker] = useState(null)
 
   // Restore an in-progress booking after refresh / returning from a UPI app
   useEffect(() => {
@@ -69,7 +70,7 @@ export default function App() {
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2600) }
 
-  const ctx = { user, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast, setScreen, setTab, resume, clearResume: () => setResume(null) }
+  const ctx = { user, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast, setScreen, setTab, resume, clearResume: () => setResume(null), rebookWorker, setRebookWorker, clearRebook: () => setRebookWorker(null) }
 
   if (screen === 'login') return <><LoginScreen {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
   if (screen === 'otp')   return <><OTPScreen   {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>

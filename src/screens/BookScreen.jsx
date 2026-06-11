@@ -8,10 +8,12 @@ import { serviceFloor } from '../constants'
 const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', GREEN='#22c55e'
 
 // Flow: 0 describe · 1 searching · 2 worker working · 3 approve price & pay · 4 no workers · 5 waiting confirm · 6 done
-export default function BookScreen({ user, city, selSvc, setTab, showToast, loadBookings, resume, clearResume }) {
+export default function BookScreen({ user, city, selSvc, setTab, showToast, loadBookings, resume, clearResume, rebookWorker, clearRebook }) {
   const [step,    setStep]    = useState(0)
   const [desc,    setDesc]    = useState('')
   const [addr,    setAddr]    = useState('')
+  const [when,    setWhen]    = useState('now')   // 'now' | 'later'
+  const [schedAt, setSchedAt] = useState('')
   const [worker,  setWorker]  = useState(null)
   const [booking, setBooking] = useState(null)
   const [rating,  setRating]  = useState(0)
@@ -80,19 +82,33 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
   async function findWorkers() {
     setStep(1)
     showToast('Finding workers nearby...')
+    const scheduled = when==='later' && schedAt
+    if (when==='later' && !schedAt) { showToast('Pick a date & time'); setStep(0); return }
     const [pos, prof] = await Promise.all([
       getPosition(),
       sb.from('profiles').select('name, phone').eq('id', user?.id).single(),
     ])
     const { data, error } = await sb.from('bookings').insert({
       user_id: user?.id, service: selSvc?.lbl, service_id: selSvc?.id,
-      description: desc||'(No description)', address: addr||(city+', Karnataka'), city, status:'searching',
+      description: desc||'(No description)', address: addr||(city+', Karnataka'), city,
+      status: scheduled ? 'scheduled' : 'searching',
+      is_scheduled: !!scheduled, scheduled_at: scheduled ? new Date(schedAt).toISOString() : null,
       address_lat: pos?.lat ?? null, address_lng: pos?.lng ?? null,
       customer_name: prof?.data?.name || null, customer_phone: prof?.data?.phone || null,
+      preferred_worker_id: rebookWorker?.id || null,
     }).select().single()
     if (error) { showToast('Error: '+error.message); setStep(0); return }
     setBooking(data)
+    if (scheduled) {
+      showToast('Booking scheduled ✓')
+      await loadBookings()
+      clearRebook && clearRebook()
+      setStep(7)  // scheduled confirmation
+      subscribeBooking(data.id)
+      return
+    }
     subscribeBooking(data.id)
+    clearRebook && clearRebook()
     // 3-minute timeout — no fake workers, just show "no workers available"
     timer.current = setTimeout(async () => {
       if (chanRef.current) { chanRef.current.unsubscribe(); chanRef.current = null }
@@ -168,6 +184,26 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           <input value={addr} onChange={e => setAddr(e.target.value)} placeholder={'MG Road, '+city}
             style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:13, fontSize:14, outline:'none', fontFamily:'inherit' }} />
         </Card>
+        {rebookWorker && (
+          <Card style={{ border:'2px solid '+Y, background:YL }}>
+            <p style={{ fontSize:13, fontWeight:700 }}>🔁 Rebooking {rebookWorker.name}</p>
+            <p style={{ fontSize:11, color:'#888', marginTop:2 }}>This worker gets your request first</p>
+          </Card>
+        )}
+        <Card>
+          <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:.6, marginBottom:10 }}>When?</p>
+          <div style={{ display:'flex', gap:8, marginBottom: when==='later' ? 12 : 0 }}>
+            {[['now','⚡ Now'],['later','📅 Schedule']].map(([v,lb]) => (
+              <button key={v} onClick={() => setWhen(v)}
+                style={{ flex:1, background: when===v ? Y : '#f5f5f5', border:'none', borderRadius:10, padding:11, fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>{lb}</button>
+            ))}
+          </div>
+          {when==='later' && (
+            <input type="datetime-local" value={schedAt} onChange={e => setSchedAt(e.target.value)}
+              min={new Date(Date.now()+30*60*1000).toISOString().slice(0,16)}
+              style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:12, fontSize:14, outline:'none', fontFamily:'inherit' }} />
+          )}
+        </Card>
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <span style={{ fontSize:14, color:'#555' }}>Estimated cost</span>
@@ -175,7 +211,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           </div>
           <p style={{ fontSize:11, color:'#bbb', marginTop:4 }}>Final price set by the worker after the job — you approve it before paying. UPI payment only, no cash.</p>
         </Card>
-        <Btn label="Find Workers Near Me 🔍" onClick={findWorkers} />
+        <Btn label={when==='later' ? 'Schedule Booking 📅' : 'Find Workers Near Me 🔍'} onClick={findWorkers} />
       </>}
 
       {step===1 && (
@@ -201,14 +237,18 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:8 }}>On the way</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:12, paddingBottom:12, borderBottom:'1px solid #f0f0f0', marginBottom:12 }}>
-            <div style={{ width:60, height:60, borderRadius:16, background:YL, display:'flex', alignItems:'center', justifyContent:'center', fontSize:30, flexShrink:0 }}>{worker.ico||'👷'}</div>
+            {worker.avatar_url
+              ? <img src={worker.avatar_url} alt="" style={{ width:60, height:60, borderRadius:16, objectFit:'cover', flexShrink:0 }} />
+              : <div style={{ width:60, height:60, borderRadius:16, background:YL, display:'flex', alignItems:'center', justifyContent:'center', fontSize:30, flexShrink:0 }}>{worker.ico||'👷'}</div>}
             <div style={{ flex:1 }}>
               <p style={{ fontSize:15, fontWeight:800 }}>{worker.name}</p>
               <p style={{ fontSize:12, color:'#888', margin:'2px 0' }}>{worker.skill}</p>
               <div style={{ display:'flex', gap:6, marginTop:4 }}>
                 <span style={{ background:'#FFF8D6', color:'#B8900A', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:6 }}>★ {worker.rating||'5.0'}</span>
                 <span style={{ background:'#f0f0f0', color:'#555', fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:6 }}>{worker.total_jobs||worker.jobs||0} jobs</span>
-                <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:6 }}>✓ Verified</span>
+                {(worker.aadhar_verified || worker.aadhaar_verified)
+                  ? <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:6 }}>✓ Verified</span>
+                  : <span style={{ background:'#FEF3C7', color:'#92400E', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:6 }}>KYC pending</span>}
               </div>
             </div>
             <a href={'tel:+91'+worker.phone} style={{ width:40, height:40, borderRadius:12, background:GREEN, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, textDecoration:'none', flexShrink:0 }}>📞</a>
@@ -229,6 +269,16 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           <p style={{ fontWeight:800, fontSize:20 }}>Work Completed!</p>
           <p style={{ fontSize:13, color:'#888', marginTop:4 }}>{worker?.name} has sent the final price</p>
           <hr style={{ border:'none', borderTop:'1px solid #f0f0f0', margin:'14px 0' }} />
+          {(booking?.photo_before_url || booking?.photo_after_url) && (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
+              {[['Before', booking.photo_before_url],['After', booking.photo_after_url]].map(([lb,u]) => u && (
+                <div key={lb}>
+                  <p style={{ fontSize:10, fontWeight:700, color:'#aaa', marginBottom:4, textAlign:'left' }}>{lb.toUpperCase()}</p>
+                  <img src={u} alt={lb} style={{ width:'100%', height:110, objectFit:'cover', borderRadius:10 }} />
+                </div>
+              ))}
+            </div>
+          )}
           {booking?.price_note && (
             <div style={{ background:'#FFF8D6', borderRadius:10, padding:'10px 12px', marginBottom:12, textAlign:'left' }}>
               <p style={{ fontSize:11, fontWeight:700, color:YD, marginBottom:2 }}>WORKER'S NOTE</p>
@@ -286,6 +336,18 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           <p style={{ fontWeight:800, fontSize:18 }}>Waiting for confirmation</p>
           <p style={{ fontSize:13, color:'#888', margin:'8px 0 4px' }}>{worker?.name} is confirming your ₹{booking?.amount} UPI payment.</p>
           <p style={{ fontSize:12, color:'#bbb' }}>This usually takes a few seconds.</p>
+        </Card>
+      )}
+
+      {step===7 && (
+        <Card style={{ textAlign:'center', padding:36, animation:'popIn .4s ease' }}>
+          <div style={{ fontSize:56, marginBottom:12 }}>📅</div>
+          <p style={{ fontWeight:800, fontSize:20 }}>Booking Scheduled!</p>
+          <p style={{ fontSize:13, color:'#888', margin:'8px 0 20px' }}>
+            {selSvc?.lbl} · {schedAt ? new Date(schedAt).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}<br/>
+            A worker will accept it and arrive at the scheduled time.
+          </p>
+          <Btn label="Back to Home" onClick={() => { resetAll(); setTab('home') }} />
         </Card>
       )}
 
