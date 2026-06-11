@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://kaam-ready-customer.vercel.app/sitemap.xml
+Sitemap: https://app.thekaamready.in/sitemap.xml
