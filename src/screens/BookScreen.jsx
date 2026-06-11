@@ -68,12 +68,27 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     return () => { cancelled = true }
   }, [resume?.id])
 
+  function getPosition() {
+    return new Promise(res => {
+      if (!navigator.geolocation) return res(null)
+      navigator.geolocation.getCurrentPosition(
+        pos => res({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        ()  => res(null), { enableHighAccuracy: true, timeout: 5000 })
+    })
+  }
+
   async function findWorkers() {
     setStep(1)
     showToast('Finding workers nearby...')
+    const [pos, prof] = await Promise.all([
+      getPosition(),
+      sb.from('profiles').select('name, phone').eq('id', user?.id).single(),
+    ])
     const { data, error } = await sb.from('bookings').insert({
       user_id: user?.id, service: selSvc?.lbl, service_id: selSvc?.id,
       description: desc||'(No description)', address: addr||(city+', Karnataka'), city, status:'searching',
+      address_lat: pos?.lat ?? null, address_lng: pos?.lng ?? null,
+      customer_name: prof?.data?.name || null, customer_phone: prof?.data?.phone || null,
     }).select().single()
     if (error) { showToast('Error: '+error.message); setStep(0); return }
     setBooking(data)
@@ -177,6 +192,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
       {step===2 && worker && <>
         <MapView
           workerLat={worker.lat} workerLng={worker.lng}
+          customerLat={booking?.address_lat} customerLng={booking?.address_lng}
           style={{ borderRadius:16, height:180, overflow:'hidden', marginBottom:0 }}
         />
         <Card style={{ border:'2px solid '+Y }}>
