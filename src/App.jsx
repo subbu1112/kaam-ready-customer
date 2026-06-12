@@ -29,9 +29,10 @@ export default function App() {
   useEffect(() => {
     if (!user?.id) return
     sb.from('bookings').select('*').eq('user_id', user.id)
-      .in('status', ['assigned','priced']).order('created_at', { ascending:false }).limit(1)
+      .in('status', ['assigned','priced']).order('created_at', { ascending:false }).limit(3)
       .then(({ data }) => {
-        const b = data?.[0]
+        // skip scheduled jobs that are still in the future — they're not "active" yet
+        const b = (data||[]).find(x => !(x.is_scheduled && x.scheduled_at && new Date(x.scheduled_at) > new Date(Date.now()+15*60*1000)))
         if (!b) return
         setResume(b)
         setSelSvc(SERVICES.find(x => x.id === b.service_id) || { id:b.service_id, lbl:b.service, ico:'🔧', range:'' })
