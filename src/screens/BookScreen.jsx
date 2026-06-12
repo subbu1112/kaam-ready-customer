@@ -3,7 +3,7 @@ import { sb } from '../lib/supabase'
 import Card from '../components/Card'
 import Btn  from '../components/Btn'
 import MapView from '../components/MapView'
-import { serviceFloor } from '../constants'
+import { serviceFloor, PLATFORM_UPI } from '../constants'
 
 const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', GREEN='#22c55e'
 
@@ -119,17 +119,11 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
 
   function upiLink() {
     const amt = booking?.amount || 0
-    const pa  = worker?.upi_id || ''
-    const pn  = encodeURIComponent(worker?.name || 'Kaam Ready Worker')
     const tn  = encodeURIComponent('Kaam Ready - '+(selSvc?.lbl||'Service'))
-    return `upi://pay?pa=${encodeURIComponent(pa)}&pn=${pn}&am=${amt}&cu=INR&tn=${tn}`
+    return `upi://pay?pa=${encodeURIComponent(PLATFORM_UPI)}&pn=${encodeURIComponent('Kaam Ready')}&am=${amt}&cu=INR&tn=${tn}`
   }
 
   async function openUpiApp() {
-    if (!worker?.upi_id) {
-      showToast('Ask the worker for their UPI ID, or pay to their phone number on your UPI app')
-      return
-    }
     window.location.href = upiLink()
   }
 
@@ -306,8 +300,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             Pay ₹{booking?.amount} via UPI 📲
           </button>
           <p style={{ fontSize:11, color:'#aaa', textAlign:'center', margin:'8px 0' }}>
-            Opens GPay / PhonePe / Paytm with the amount pre-filled
-            {worker?.upi_id ? <> · paying to <b>{worker.upi_id}</b></> : null}
+            Opens GPay / PhonePe / Paytm with the amount pre-filled · paid securely to <b>Kaam Ready</b>
           </p>
           <button onClick={markPaid} disabled={paying}
             style={{ width:'100%', background:'#1C1C1E', color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit', opacity:paying?.6:1 }}>
@@ -334,8 +327,8 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
         <Card style={{ textAlign:'center', padding:36 }}>
           <div style={{ fontSize:52, marginBottom:14, animation:'float 1.5s ease-in-out infinite' }}>⏳</div>
           <p style={{ fontWeight:800, fontSize:18 }}>Waiting for confirmation</p>
-          <p style={{ fontSize:13, color:'#888', margin:'8px 0 4px' }}>{worker?.name} is confirming your ₹{booking?.amount} UPI payment.</p>
-          <p style={{ fontSize:12, color:'#bbb' }}>This usually takes a few seconds.</p>
+          <p style={{ fontSize:13, color:'#888', margin:'8px 0 4px' }}>Kaam Ready is verifying your ₹{booking?.amount} UPI payment.</p>
+          <p style={{ fontSize:12, color:'#bbb' }}>Usually verified within minutes — you'll see confirmation here.</p>
         </Card>
       )}
 
@@ -355,7 +348,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
         <Card style={{ textAlign:'center', padding:36, animation:'popIn .4s ease' }}>
           <div style={{ fontSize:60, marginBottom:12 }}>🎉</div>
           <p style={{ fontWeight:800, fontSize:22 }}>All Done!</p>
-          <p style={{ fontSize:13, color:'#888', margin:'6px 0 20px' }}>₹{booking?.amount} paid via UPI · confirmed by {worker?.name}</p>
+          <p style={{ fontSize:13, color:'#888', margin:'6px 0 20px' }}>₹{booking?.amount} paid via UPI · confirmed by Kaam Ready</p>
           <Btn label="Back to Home" onClick={() => { resetAll(); setTab('home') }} />
         </Card>
       )}
