@@ -150,12 +150,17 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
   async function markPaid() {
     if (!booking?.id || paying) return
     setPaying(true)
-    const { error } = await sb.from('bookings').update({
+    // Guard: only update if still in priced state — prevents double-tap marking paid twice
+    const { error, data } = await sb.from('bookings').update({
       payment_status:'claimed', payment_method:'upi',
       customer_paid_at:new Date().toISOString(), rating: rating||null,
-    }).eq('id', booking.id)
+    }).eq('id', booking.id).eq('user_id', user?.id).eq('status','priced').eq('payment_status','pending').select('id')
     setPaying(false)
     if (error) { showToast(error.message); return }
+    if (!data || data.length === 0) {
+      // Already claimed or state changed — just advance UI
+      setStep(5); return
+    }
     setStep(5); showToast('Payment sent — our team is verifying ⏳')
   }
 

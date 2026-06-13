@@ -84,7 +84,10 @@ export default function App() {
       background:'#F2F2F7', maxWidth:430, margin:'0 auto', overflow:'hidden', position:'relative' }}>
       {tab === 'home'     && <HomeScreen     {...ctx} setTab={setTab} />}
       {tab === 'search'   && <SearchScreen   {...ctx} setTab={setTab} />}
-      {tab === 'book'     && <BookScreen     {...ctx} setTab={setTab} />}
+      {/* BookScreen always mounted — preserves realtime subscription during tab switches */}
+      <div style={{ display: tab === 'book' ? 'contents' : 'none' }}>
+        <BookScreen {...ctx} setTab={setTab} />
+      </div>
       {tab === 'bookings' && <BookingsScreen {...ctx} setTab={setTab} />}
       {tab === 'profile'  && <ProfileScreen  {...ctx} setTab={setTab} />}
       <TabBar tab={tab} setTab={setTab} />
