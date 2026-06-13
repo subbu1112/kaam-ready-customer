@@ -156,7 +156,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     }).eq('id', booking.id)
     setPaying(false)
     if (error) { showToast(error.message); return }
-    setStep(5); showToast('Waiting for worker to confirm payment... ⏳')
+    setStep(5); showToast('Payment sent — our team is verifying ⏳')
   }
 
   function resetAll() {
