@@ -79,18 +79,28 @@ export default function App() {
   if (screen === 'otp')   return <><OTPScreen   {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
   if (screen === 'city')  return <><CityScreen  {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
 
+  // Tab order for direction-aware animation
+  const TAB_ORDER = ['home','search','book','bookings','profile']
+  const [prevTab, setPrevTab] = useState('home')
+  function switchTab(t) { setPrevTab(tab); setTab(t) }
+  function tabAnimClass(t) {
+    if (t !== tab) return ''
+    const pi = TAB_ORDER.indexOf(prevTab), ci = TAB_ORDER.indexOf(tab)
+    return ci > pi ? 'kr-screen-anim' : 'kr-screen-anim-left'
+  }
+
   return (
     <div style={{ height:'100dvh', minHeight:'-webkit-fill-available', display:'flex', flexDirection:'column',
       background:'#F2F2F7', maxWidth:430, margin:'0 auto', overflow:'hidden', position:'relative' }}>
-      {tab === 'home'     && <HomeScreen     {...ctx} setTab={setTab} />}
-      {tab === 'search'   && <SearchScreen   {...ctx} setTab={setTab} />}
+      {tab === 'home'     && <div key="home"     className={tabAnimClass('home')}     style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}><HomeScreen     {...ctx} setTab={switchTab} /></div>}
+      {tab === 'search'   && <div key="search"   className={tabAnimClass('search')}   style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}><SearchScreen   {...ctx} setTab={switchTab} /></div>}
       {/* BookScreen always mounted — preserves realtime subscription during tab switches */}
       <div style={{ display: tab === 'book' ? 'contents' : 'none' }}>
-        <BookScreen {...ctx} setTab={setTab} />
+        <BookScreen {...ctx} setTab={switchTab} />
       </div>
-      {tab === 'bookings' && <BookingsScreen {...ctx} setTab={setTab} />}
-      {tab === 'profile'  && <ProfileScreen  {...ctx} setTab={setTab} />}
-      <TabBar tab={tab} setTab={setTab} />
+      {tab === 'bookings' && <div key="bookings" className={tabAnimClass('bookings')} style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}><BookingsScreen {...ctx} setTab={switchTab} /></div>}
+      {tab === 'profile'  && <div key="profile"  className={tabAnimClass('profile')}  style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}><ProfileScreen  {...ctx} setTab={switchTab} /></div>}
+      <TabBar tab={tab} setTab={switchTab} />
       {showTerms && <TermsModal onAccept={() => { acceptTerms(); setShowTerms(false) }} />}
       {toast && <Toast msg={toast} />}
     </div>

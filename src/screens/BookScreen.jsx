@@ -204,7 +204,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
       <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
 
         {/* Step 0: Describe */}
-        {step===0 && <>
+        {step===0 && <div key='s0' className='kr-step-enter'>
           <Card>
             <p style={{ fontSize:12, fontWeight:700, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:.6, marginBottom:12 }}>
               Describe the problem
@@ -261,11 +261,11 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
 
           <Btn label={when==='later' ? '📅 Schedule Booking' : '🔍 Find Workers Near Me'}
             onClick={findWorkers} />
-        </>}
+        </div>}
 
         {/* Step 1: Searching */}
         {step===1 && (
-          <Card style={{ textAlign:'center', padding:'48px 24px' }}>
+          <Card className='kr-step-enter' style={{ textAlign:'center', padding:'48px 24px' }}>
             <div style={{ width:72, height:72, borderRadius:'50%', background:'#FFF8D6',
               display:'flex', alignItems:'center', justifyContent:'center',
               fontSize:36, margin:'0 auto 20px', animation:'float 1.4s ease-in-out infinite' }}>

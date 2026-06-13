@@ -113,7 +113,7 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:999,
           display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
           <div style={{ background:'#fff', borderRadius:'24px 24px 0 0', width:'100%', maxWidth:430,
-            padding:'20px 20px 40px', animation:'slideUp .3s ease' }}>
+            padding:'20px 20px 40px', animation:'kr-reveal-up .35s cubic-bezier(.22,1,.36,1)' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
               <p style={{ fontWeight:800, fontSize:18 }}>⚠️ Report a Problem</p>
               <button onClick={() => { setReportFor(null); setReason('') }}
@@ -166,7 +166,7 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
           const c   = SVC_COLORS[svc?.id] || { bg:'#F5F5F8' }
           const isActive = ['searching','assigned','priced','scheduled'].includes(b.status)
           return (
-            <div key={b.id} style={{
+            <div key={b.id} className="kr-card-hover" style={{
               background:'#fff', borderRadius:18,
               boxShadow:'0 1px 3px rgba(0,0,0,.05), 0 4px 14px rgba(0,0,0,.04)',
               border: isActive ? '2px solid #F5C000' : '1px solid #F0F0F2',

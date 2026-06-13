@@ -134,9 +134,9 @@ export default function HomeScreen({ city, selSvc, setSelSvc, setTab, bookings, 
                   textAlign: 'center',
                   cursor: 'pointer',
                   border: `2px solid ${sel ? '#D4A200' : c.border}`,
-                  transform: sel ? 'scale(1.04)' : 'scale(1)',
-                  transition: 'all .16s ease',
-                  boxShadow: sel ? '0 4px 16px rgba(245,192,0,.3)' : 'none',
+                  transform: sel ? 'scale(1.07) translateY(-2px)' : 'scale(1)',
+                  transition: 'all .2s cubic-bezier(.34,1.56,.64,1)',
+                  boxShadow: sel ? '0 6px 20px rgba(245,192,0,.4)' : '0 1px 3px rgba(0,0,0,.04)',
                 }}>
                 <div style={{ fontSize:28, marginBottom:7 }}>{s.ico}</div>
                 <div style={{ fontSize:11, fontWeight:700, color: sel ? '#1A1A1A' : '#374151', lineHeight:1.3 }}>
@@ -150,7 +150,7 @@ export default function HomeScreen({ city, selSvc, setSelSvc, setTab, bookings, 
           })}
         </div>
 
-        <button
+        <button className={selSvc ? 'kr-btn-anim' : ''}
           onClick={() => { if (!selSvc) { showToast('Select a service first'); return } setTab('book') }}
           style={{
             width:'100%', marginTop:16,
@@ -158,8 +158,9 @@ export default function HomeScreen({ city, selSvc, setSelSvc, setTab, bookings, 
             border:'none', borderRadius:16, padding:'17px 20px',
             fontWeight:800, fontSize:16, cursor: selSvc ? 'pointer' : 'default', fontFamily:'inherit',
             color: selSvc ? '#1A1A1A' : '#AEAEB2',
-            transition: 'all .2s ease',
-            boxShadow: selSvc ? '0 4px 18px rgba(245,192,0,.4)' : 'none',
+            transition: 'all .25s cubic-bezier(.34,1.56,.64,1)',
+            boxShadow: selSvc ? '0 6px 24px rgba(245,192,0,.5)' : 'none',
+            transform: selSvc ? 'translateY(0)' : 'none',
           }}>
           {selSvc ? `Book ${selSvc.lbl} →` : 'Select a service above'}
         </button>

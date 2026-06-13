@@ -21,12 +21,22 @@ export default function TabBar({ tab, setTab }) {
             style={{
               flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
               gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0',
-            }}>
+              transition: 'transform .15s cubic-bezier(.34,1.56,.64,1)',
+            }}
+            onMouseDown={e => e.currentTarget.style.transform = 'scale(.88)'}
+            onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+            onTouchStart={e => e.currentTarget.style.transform = 'scale(.88)'}
+            onTouchEnd={e => e.currentTarget.style.transform = 'scale(1)'}>
             <div style={{
-              width: active ? 48 : 34, height: 34, borderRadius: 12,
+              width: active ? 48 : 34,
+              height: 34,
+              borderRadius: 12,
               background: active ? '#FFF8D6' : 'transparent',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: active ? 21 : 19, transition: 'all .2s ease',
+              fontSize: active ? 21 : 19,
+              transition: 'all .25s cubic-bezier(.34,1.56,.64,1)',
+              boxShadow: active ? '0 4px 14px rgba(245,192,0,.35)' : 'none',
+              transform: active ? 'translateY(-2px)' : 'translateY(0)',
             }}>{t.ico}</div>
             <span style={{
               fontSize: 10, fontWeight: 700,
