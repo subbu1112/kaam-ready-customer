@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { sb } from './lib/supabase'
+import LandingScreen  from './screens/LandingScreen'
 import LoginScreen    from './screens/LoginScreen'
 import OTPScreen      from './screens/OTPScreen'
 import CityScreen     from './screens/CityScreen'
@@ -14,7 +15,7 @@ import TermsModal, { termsAccepted, acceptTerms } from './components/TermsModal'
 import { SERVICES } from './constants'
 
 export default function App() {
-  const [screen,   setScreen]   = useState('login')
+  const [screen,   setScreen]   = useState('landing')
   const [tab,      setTab]      = useState('home')
   const [user,     setUser]     = useState(null)
   const [city,     setCity]     = useState(null)
@@ -73,6 +74,7 @@ export default function App() {
 
   const ctx = { user, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast, setScreen, setTab, resume, setResume, clearResume: () => setResume(null), rebookWorker, setRebookWorker, clearRebook: () => setRebookWorker(null) }
 
+  if (screen === 'landing') return <LandingScreen setScreen={setScreen} />
   if (screen === 'login') return <><LoginScreen {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
   if (screen === 'otp')   return <><OTPScreen   {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
   if (screen === 'city')  return <><CityScreen  {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
