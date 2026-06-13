@@ -93,7 +93,7 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
           </span>
         </div>
         {/* Filter tabs */}
-        <div style={{ display:'flex', gap:6, paddingBottom:1 }}>
+        <div style={{ display:'flex', gap:6, paddingBottom:12, overflowX:'auto', WebkitOverflowScrolling:'touch', scrollbarWidth:'none' }}>
           {FILTERS.map(f => (
             <button key={f.id} onClick={() => setFilter(f.id)}
               style={{
