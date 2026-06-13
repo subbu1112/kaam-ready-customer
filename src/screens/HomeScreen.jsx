@@ -13,7 +13,7 @@ const SVC_COLORS = {
   emerg:  { bg:'#FFF1F2', border:'#FECDD3', ico:'#DC2626' },
 }
 
-export default function HomeScreen({ city, selSvc, setSelSvc, setTab, bookings, loadBookings, showToast, user }) {
+export default function HomeScreen({ city, selSvc, setSelSvc, setTab, bookings, loadBookings, showToast, user, setResume }) {
   const [greeting, setGreeting] = useState('Good day')
 
   useEffect(() => {
@@ -83,24 +83,37 @@ export default function HomeScreen({ city, selSvc, setSelSvc, setTab, bookings, 
       </div>
 
       {/* Active booking banner */}
-      {activeBookings.length > 0 && (
-        <div onClick={() => setTab('bookings')} style={{ margin:'-4px 16px 16px', cursor:'pointer' }}>
-          <div style={{
-            background:'#1A1A1A', borderRadius:16, padding:'14px 18px',
-            display:'flex', justifyContent:'space-between', alignItems:'center',
-          }}>
-            <div>
-              <p style={{ color:'#fff', fontWeight:700, fontSize:14 }}>
-                🔄 Active booking
-              </p>
-              <p style={{ color:'#888', fontSize:12, marginTop:2 }}>
-                {activeBookings[0].service} · {activeBookings[0].status.replace('searching','Searching...')}
-              </p>
+      {activeBookings.length > 0 && (() => {
+        const ab = activeBookings[0]
+        const needsPay = ab.status === 'priced' || ab.payment_status === 'claimed'
+        function bannerClick() {
+          if (needsPay) {
+            setResume && setResume(ab)
+            setSelSvc(SERVICES.find(x => x.id === ab.service_id) || { id: ab.service_id, lbl: ab.service, ico: '🔧', range: '' })
+            setTab('book')
+          } else {
+            setTab('bookings')
+          }
+        }
+        return (
+          <div onClick={bannerClick} style={{ margin:'-4px 16px 16px', cursor:'pointer' }}>
+            <div style={{
+              background: needsPay ? '#F5C000' : '#1A1A1A', borderRadius:16, padding:'14px 18px',
+              display:'flex', justifyContent:'space-between', alignItems:'center',
+            }}>
+              <div>
+                <p style={{ color: needsPay ? '#1A1A1A' : '#fff', fontWeight:700, fontSize:14 }}>
+                  {needsPay ? '💳 Tap to Pay' : '🔄 Active booking'}
+                </p>
+                <p style={{ color: needsPay ? '#78580A' : '#888', fontSize:12, marginTop:2 }}>
+                  {ab.service} · {needsPay ? '₹'+ab.amount+' pending' : ab.status.replace('searching','Searching...')}
+                </p>
+              </div>
+              <span style={{ color: needsPay ? '#1A1A1A' : '#F5C000', fontSize:22, fontWeight:300 }}>›</span>
             </div>
-            <span style={{ color:'#F5C000', fontSize:22, fontWeight:300 }}>›</span>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Services grid */}
       <div style={{ padding:'0 16px 8px' }}>

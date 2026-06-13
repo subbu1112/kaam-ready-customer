@@ -472,7 +472,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             </div>
             <p style={{ fontWeight:900, fontSize:26, color:'#1A1A1A' }}>All Done!</p>
             <p style={{ fontSize:14, color:'#9CA3AF', margin:'10px 0 28px' }}>
-              ₹{booking?.amount} paid · confirmed by {worker?.name}
+              ₹{booking?.amount} paid · verified by Kaam Ready ✓
             </p>
             <Btn label="Back to Home" onClick={() => { resetAll(); setTab('home') }} />
           </Card>

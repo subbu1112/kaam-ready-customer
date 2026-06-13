@@ -8,12 +8,17 @@ const SVC_COLORS = {
   paint:{bg:'#F5F3FF'},pest:{bg:'#FFF1F2'},mech:{bg:'#F1F5F9'},labor:{bg:'#EFF6FF'},emerg:{bg:'#FFF1F2'},
 }
 const STATUS_CFG = {
-  completed: { bg:'#D1FAE5', c:'#065F46', label:'✓ Done',         dot:'#10B981' },
-  searching:  { bg:'#FFF8D6', c:'#B8900A', label:'Searching...',   dot:'#F5C000' },
-  assigned:   { bg:'#DBEAFE', c:'#1E40AF', label:'Active',         dot:'#3B82F6' },
-  priced:     { bg:'#FEF3C7', c:'#92400E', label:'💳 Pay Now',     dot:'#F59E0B' },
-  cancelled:  { bg:'#FEE2E2', c:'#991B1B', label:'Cancelled',      dot:'#EF4444' },
-  scheduled:  { bg:'#EDE9FE', c:'#5B21B6', label:'📅 Scheduled',   dot:'#7C3AED' },
+  completed:       { bg:'#D1FAE5', c:'#065F46', label:'✓ Done',         dot:'#10B981' },
+  searching:       { bg:'#FFF8D6', c:'#B8900A', label:'Searching...',   dot:'#F5C000' },
+  assigned:        { bg:'#DBEAFE', c:'#1E40AF', label:'Active',         dot:'#3B82F6' },
+  priced:          { bg:'#FEF3C7', c:'#92400E', label:'💳 Pay Now',     dot:'#F59E0B' },
+  payment_claimed: { bg:'#E8F5E9', c:'#1B5E20', label:'🔄 Verifying',   dot:'#4CAF50' },
+  cancelled:       { bg:'#FEE2E2', c:'#991B1B', label:'Cancelled',      dot:'#EF4444' },
+  scheduled:       { bg:'#EDE9FE', c:'#5B21B6', label:'📅 Scheduled',   dot:'#7C3AED' },
+}
+function getBadgeCfg(b) {
+  if (b.status === 'priced' && b.payment_status === 'claimed') return STATUS_CFG.payment_claimed
+  return getBadgeCfg(b) || { bg:'#F5F5F5', c:'#666', label: b.status, dot:'#999' }
 }
 const FILTERS = [
   { id:'all',    label:'All'     },
@@ -21,7 +26,7 @@ const FILTERS = [
   { id:'done',   label:'Done'    },
 ]
 
-export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorker, showToast }) {
+export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorker, showToast, setResume }) {
   const [bookings, setBookings] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [filter,   setFilter]   = useState('all')
@@ -48,6 +53,12 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
     setTab('book')
   }
 
+  function resumeToBook(b) {
+    setResume && setResume(b)
+    setSelSvc(SERVICES.find(s => s.id === b.service_id) || { id: b.service_id, lbl: b.service, ico: '🔧', range: '' })
+    setTab('book')
+  }
+
   async function submitReport() {
     if (!reason.trim() || busy) return
     setBusy(true)
@@ -67,13 +78,13 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
     return true
   })
 
-  function getSvc(b) { return SERVICES.find(s=>s.lbl===b.service) }
+  function getSvc(b) { return SERVICES.find(s=>s.lbl===b.service || s.id===b.service_id) }
 
   return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', background:'#F5F5F8' }}>
 
       {/* Header */}
-      <div style={{ background:'#fff', padding:'52px 20px 0', borderBottom:'1px solid #F0F0F2', flexShrink:0 }}>
+      <div style={{ background:'#fff', padding:'max(52px, calc(20px + env(safe-area-inset-top))) 20px 0', borderBottom:'1px solid #F0F0F2', flexShrink:0 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
           <h1 style={{ fontSize:22, fontWeight:800, color:'#1A1A1A' }}>My Bookings</h1>
           <span style={{ background:'#F5F5F8', color:'#6B7280', fontSize:12, fontWeight:700,
@@ -150,7 +161,7 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
               style={{ width:'auto', padding:'13px 28px', margin:'0 auto', display:'block' }} />}
           </div>
         ) : filtered.map(b => {
-          const st  = STATUS_CFG[b.status] || STATUS_CFG.searching
+          const st  = getBadgeCfg(b) || STATUS_CFG.searching
           const svc = getSvc(b)
           const c   = SVC_COLORS[svc?.id] || { bg:'#F5F5F8' }
           const isActive = ['searching','assigned','priced','scheduled'].includes(b.status)
@@ -216,6 +227,29 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
                 <p style={{ fontSize:12, color:'#9CA3AF', padding:'0 16px', marginBottom:10 }}>
                   📍 {b.address}
                 </p>
+              )}
+
+              {/* Pay Now banner for priced bookings */}
+              {b.status === 'priced' && b.payment_status !== 'claimed' && (
+                <div style={{ margin:'0 16px 12px' }}>
+                  <button onClick={() => resumeToBook(b)}
+                    style={{ width:'100%', background:'#F5C000', border:'none', borderRadius:13,
+                      padding:'13px 16px', fontWeight:800, fontSize:14, cursor:'pointer',
+                      fontFamily:'inherit', color:'#1A1A1A', display:'flex', justifyContent:'space-between',
+                      alignItems:'center', boxShadow:'0 4px 14px rgba(245,192,0,.4)' }}>
+                    <span>💳 Pay ₹{b.amount} Now</span>
+                    <span>›</span>
+                  </button>
+                </div>
+              )}
+              {b.status === 'priced' && b.payment_status === 'claimed' && (
+                <div style={{ margin:'0 16px 12px', background:'#E8F5E9', borderRadius:13, padding:'12px 16px', display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ fontSize:20 }}>🔄</span>
+                  <div>
+                    <p style={{ margin:0, fontWeight:700, fontSize:13, color:'#1B5E20' }}>Payment sent — Admin verifying</p>
+                    <p style={{ margin:'2px 0 0', fontSize:11, color:'#2E7D32' }}>Will be marked complete once confirmed</p>
+                  </div>
+                </div>
               )}
 
               {/* Actions + amount */}

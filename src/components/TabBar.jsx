@@ -10,7 +10,7 @@ export default function TabBar({ tab, setTab }) {
       background: '#fff',
       borderTop: '1px solid #F0F0F2',
       display: 'flex',
-      padding: '10px 6px 18px',
+      padding: '10px 6px calc(18px + env(safe-area-inset-bottom))',
       flexShrink: 0,
       boxShadow: '0 -4px 24px rgba(0,0,0,.06)',
     }}>
