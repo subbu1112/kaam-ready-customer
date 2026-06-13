@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { sb } from '../lib/supabase'
 import { SERVICES } from '../constants'
 import Btn from '../components/Btn'
@@ -34,15 +34,33 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
   const [reason,    setReason]    = useState('')
   const [busy,      setBusy]      = useState(false)
 
-  useEffect(() => { if (user?.id) load(user.id) }, [user?.id])
+  const chanRef = useRef(null)
 
-  async function load(uid) {
+  const load = useCallback(async (uid) => {
     setLoading(true)
     const { data } = await sb.from('bookings').select('*')
       .eq('user_id', uid).order('created_at', { ascending:false })
     if (data) setBookings(data)
     setLoading(false)
-  }
+  }, [])
+
+  // Initial load + realtime subscription for live updates
+  useEffect(() => {
+    if (!user?.id) return
+    load(user.id)
+    // Subscribe to booking changes for this user
+    chanRef.current = sb.channel('bookings-user-' + user.id)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: 'user_id=eq.' + user.id },
+        () => load(user.id))
+      .subscribe()
+    // Also refresh when tab becomes visible (user returns from UPI app)
+    function onVisible() { if (document.visibilityState === 'visible') load(user.id) }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      chanRef.current && sb.removeChannel(chanRef.current)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [user?.id, load])
 
   async function rebook(b) {
     if (!b.worker_id) return
@@ -87,20 +105,38 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
       <div style={{ background:'#fff', padding:'max(52px, calc(20px + env(safe-area-inset-top))) 20px 0', borderBottom:'1px solid #F0F0F2', flexShrink:0 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
           <h1 style={{ fontSize:22, fontWeight:800, color:'#1A1A1A' }}>My Bookings</h1>
-          <span style={{ background:'#F5F5F8', color:'#6B7280', fontSize:12, fontWeight:700,
-            padding:'4px 10px', borderRadius:20 }}>
-            {bookings.length} total
-          </span>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <span style={{ background:'#F5F5F8', color:'#6B7280', fontSize:12, fontWeight:700,
+              padding:'4px 10px', borderRadius:20 }}>
+              {bookings.length} total
+            </span>
+            <button onClick={() => load(user.id)}
+              style={{ background:'#F5F5F8', border:'none', borderRadius:10, padding:'6px 10px',
+                cursor:'pointer', fontSize:14, display:'flex', alignItems:'center',
+                transition:'transform .2s cubic-bezier(.34,1.56,.64,1)' }}
+              title="Refresh"
+              onPointerDown={e => e.currentTarget.style.transform='rotate(180deg) scale(.9)'}
+              onPointerUp={e => e.currentTarget.style.transform='rotate(0deg) scale(1)'}>
+              🔄
+            </button>
+          </div>
         </div>
         {/* Filter tabs */}
-        <div style={{ display:'flex', gap:6, paddingBottom:12, overflowX:'auto', WebkitOverflowScrolling:'touch', scrollbarWidth:'none' }}>
+        <div style={{ display:'flex', gap:6, paddingBottom:12, overflowX:'auto', overflowY:'visible',
+          WebkitOverflowScrolling:'touch', scrollbarWidth:'none', msOverflowStyle:'none',
+          paddingLeft:2, paddingRight:2, margin:'0 -2px' }}>
+          <style>{'.kr-filter-bar::-webkit-scrollbar{display:none}'}</style>
           {FILTERS.map(f => (
             <button key={f.id} onClick={() => setFilter(f.id)}
               style={{
-                padding:'8px 16px', borderRadius:20, border:'none', cursor:'pointer',
-                fontFamily:'inherit', fontWeight:700, fontSize:13, transition:'.15s',
+                padding:'8px 18px', borderRadius:20, border:'none', cursor:'pointer',
+                fontFamily:'inherit', fontWeight:700, fontSize:13,
+                transition:'all .2s cubic-bezier(.34,1.56,.64,1)',
                 background: filter===f.id ? '#F5C000' : '#F5F5F8',
                 color: filter===f.id ? '#1A1A1A' : '#6B7280',
+                flexShrink: 0,
+                boxShadow: filter===f.id ? '0 3px 10px rgba(245,192,0,.35)' : 'none',
+                transform: filter===f.id ? 'scale(1.05)' : 'scale(1)',
               }}>
               {f.label}
             </button>
