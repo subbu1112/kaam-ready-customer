@@ -25,6 +25,7 @@ export default function App() {
   const [showTerms, setShowTerms] = useState(false)
   const [resume,   setResume]   = useState(null)
   const [rebookWorker, setRebookWorker] = useState(null)
+  const [prevTab, setPrevTab] = useState('home')
 
   // Restore an in-progress booking after refresh / returning from a UPI app
   useEffect(() => {
@@ -72,6 +73,13 @@ export default function App() {
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2600) }
 
+  const TAB_ORDER = ['home','search','book','bookings','profile']
+  function switchTab(t) { setPrevTab(tab); setTab(t) }
+  function tabAnimClass(t) {
+    const pi = TAB_ORDER.indexOf(prevTab), ci = TAB_ORDER.indexOf(tab)
+    return ci > pi ? 'kr-screen-anim' : 'kr-screen-anim-left'
+  }
+
   const ctx = { user, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast, setScreen, setTab, resume, setResume, clearResume: () => setResume(null), rebookWorker, setRebookWorker, clearRebook: () => setRebookWorker(null) }
 
   if (screen === 'landing') return <LandingScreen setScreen={setScreen} />
@@ -80,15 +88,6 @@ export default function App() {
   if (screen === 'city')  return <><CityScreen  {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
 
   // Tab order for direction-aware animation
-  const TAB_ORDER = ['home','search','book','bookings','profile']
-  const [prevTab, setPrevTab] = useState('home')
-  function switchTab(t) { setPrevTab(tab); setTab(t) }
-  function tabAnimClass(t) {
-    if (t !== tab) return ''
-    const pi = TAB_ORDER.indexOf(prevTab), ci = TAB_ORDER.indexOf(tab)
-    return ci > pi ? 'kr-screen-anim' : 'kr-screen-anim-left'
-  }
-
   return (
     <div style={{ height:'100dvh', minHeight:'-webkit-fill-available', display:'flex', flexDirection:'column',
       background:'#F2F2F7', maxWidth:430, margin:'0 auto', overflow:'hidden', position:'relative' }}>
