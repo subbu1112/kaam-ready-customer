@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 
 const Y = '#F5C000'
 const DARK = '#1A1A1A'
@@ -11,27 +11,20 @@ const SERVICES = [
 ]
 
 function PhoneMockup() {
-  const [deferredPrompt, setDeferredPrompt] = useState(null)
-  const [installed, setInstalled] = useState(false)
-  const [showIosHint, setShowIosHint] = useState(false)
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
-  const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches
+  const [installed, setInstalled] = useState(
+    window.matchMedia('(display-mode: standalone)').matches
+  )
 
   useEffect(() => {
-    if (isInStandaloneMode) { setInstalled(true); return }
-    const handler = e => { e.preventDefault(); setDeferredPrompt(e) }
-    window.addEventListener('beforeinstallprompt', handler)
     window.addEventListener('appinstalled', () => setInstalled(true))
-    return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
   async function handleInstall() {
-    if (isIos) { setShowIosHint(h => !h); return }
-    if (!deferredPrompt) { setShowIosHint(true); return }
-    deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    if (outcome === 'accepted') setInstalled(true)
-    setDeferredPrompt(null)
+    const prompt = window.__pwaPrompt
+    if (!prompt) return
+    prompt.prompt()
+    const { outcome } = await prompt.userChoice
+    if (outcome === 'accepted') { setInstalled(true); window.__pwaPrompt = null }
   }
 
   return (
@@ -112,27 +105,20 @@ export default function LandingScreen({ setScreen }) {
     return () => document.getElementById('kr-landing')?.remove()
   }, [])
 
-  const [deferredPrompt, setDeferredPrompt] = useState(null)
-  const [installed, setInstalled] = useState(false)
-  const [showIosHint, setShowIosHint] = useState(false)
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
-  const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches
+  const [installed, setInstalled] = useState(
+    window.matchMedia('(display-mode: standalone)').matches
+  )
 
   useEffect(() => {
-    if (isInStandaloneMode) { setInstalled(true); return }
-    const handler = e => { e.preventDefault(); setDeferredPrompt(e) }
-    window.addEventListener('beforeinstallprompt', handler)
     window.addEventListener('appinstalled', () => setInstalled(true))
-    return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
   async function handleInstall() {
-    if (isIos) { setShowIosHint(h => !h); return }
-    if (!deferredPrompt) { setShowIosHint(true); return }
-    deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    if (outcome === 'accepted') setInstalled(true)
-    setDeferredPrompt(null)
+    const prompt = window.__pwaPrompt
+    if (!prompt) return
+    prompt.prompt()
+    const { outcome } = await prompt.userChoice
+    if (outcome === 'accepted') { setInstalled(true); window.__pwaPrompt = null }
   }
 
   return (
@@ -218,12 +204,7 @@ export default function LandingScreen({ setScreen }) {
                   color:'#A0FFA0', fontWeight:700, fontSize:14 }}>✓ App Installed</div>
               )}
             </div>
-            {showIosHint && (
-              <div style={{ marginTop:16, background:'rgba(255,255,255,.12)', borderRadius:14,
-                padding:'14px 16px', color:'#FFF', fontSize:13, lineHeight:1.6 }}>
-                📱 On iPhone: tap <strong>Share →</strong> then <strong>"Add to Home Screen"</strong>
-              </div>
-            )}
+
           </div>
           <div className="kr-phone"><PhoneMockup /></div>
         </div>
