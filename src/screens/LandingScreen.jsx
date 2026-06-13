@@ -223,7 +223,7 @@ export default function LandingScreen({ setScreen }) {
         <p style={{ fontSize:13, color:'#9CA3AF', margin:'0 0 20px', lineHeight:1.6 }}>
           Join 500+ workers earning ₹500–₹2000/day. Weekly UPI payouts. Jobs near you.
         </p>
-        <a href="https://kaam-ready-worker.vercel.app" target="_blank" rel="noreferrer"
+        <a href="https://worker.thekaamready.in" target="_blank" rel="noreferrer"
           style={{ display:'block', background:Y, color:DARK, textDecoration:'none', borderRadius:13,
             padding:'14px 20px', fontWeight:900, fontSize:14, textAlign:'center',
             boxShadow:'0 6px 20px rgba(245,192,0,.35)' }}>
