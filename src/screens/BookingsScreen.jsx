@@ -18,7 +18,7 @@ const STATUS_CFG = {
 }
 function getBadgeCfg(b) {
   if (b.status === 'priced' && b.payment_status === 'claimed') return STATUS_CFG.payment_claimed
-  return getBadgeCfg(b) || { bg:'#F5F5F5', c:'#666', label: b.status, dot:'#999' }
+  return STATUS_CFG[b.status] || { bg:'#F5F5F5', c:'#666', label: b.status, dot:'#999' }
 }
 const FILTERS = [
   { id:'all',    label:'All'     },
