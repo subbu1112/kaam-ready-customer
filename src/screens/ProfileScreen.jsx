@@ -1,176 +1,123 @@
 import { useState } from 'react'
 import { sb } from '../lib/supabase'
-import Card from '../components/Card'
-import Btn  from '../components/Btn'
-import AvatarUpload from '../components/AvatarUpload'
-import HelpScreen from './HelpScreen'
-import AddressScreen from './AddressScreen'
-import LegalScreen from './LegalScreen'
-import { KA_CITIES } from '../constants'
 
-const YL = '#FFF8D6', YD = '#B8900A', Y = '#F5C000', BK = '#1C1C1E'
+const PURPLE = '#6366f1', GREEN = '#22c55e'
 
-function PaymentModal({ user, onClose, showToast }) {
-  const [upi,    setUpi]    = useState('')
-  const [saving, setSaving] = useState(false)
-  const [saved,  setSaved]  = useState(() => {
-    try { return JSON.parse(localStorage.getItem('kr_payment_methods') || '[]') } catch { return [] }
-  })
-
-  function addUPI() {
-    if (!upi.includes('@')) { showToast('Enter a valid UPI ID (e.g. name@upi)'); return }
-    setSaving(true)
-    const updated = [...saved.filter(u => u !== upi), upi]
-    localStorage.setItem('kr_payment_methods', JSON.stringify(updated))
-    setSaved(updated)
-    setUpi('')
-    showToast('UPI saved')
-    setSaving(false)
-  }
-  function remove(u) {
-    const updated = saved.filter(x => x !== u)
-    localStorage.setItem('kr_payment_methods', JSON.stringify(updated))
-    setSaved(updated)
-  }
-
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:999, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
-      <div style={{ background:'#fff', borderRadius:'24px 24px 0 0', width:'100%', maxWidth:430, padding:'20px 20px 40px' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-          <p style={{ fontWeight:800, fontSize:18 }}>Payment Methods</p>
-          <button onClick={onClose} style={{ background:'#f2f2f7', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>Close</button>
-        </div>
-        {saved.length > 0 && (
-          <div style={{ marginBottom:16 }}>
-            {saved.map(u => (
-              <div key={u} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'#f9f9f9', borderRadius:12, marginBottom:8 }}>
-                <span style={{ fontSize:20 }}>&#128241;</span>
-                <span style={{ flex:1, fontSize:14, fontWeight:600 }}>{u}</span>
-                <button onClick={() => remove(u)} style={{ background:'none', border:'none', color:'#ef4444', fontSize:18, cursor:'pointer' }}>x</button>
-              </div>
-            ))}
-          </div>
-        )}
-        <p style={{ fontSize:13, color:'#888', marginBottom:10 }}>Add UPI ID</p>
-        <div style={{ display:'flex', gap:8 }}>
-          <input value={upi} onChange={e => setUpi(e.target.value)}
-            placeholder="yourname@paytm / @gpay"
-            style={{ flex:1, border:'1.5px solid #E5E5EA', borderRadius:12, padding:'12px 14px', fontSize:14, outline:'none', fontFamily:'inherit' }} />
-          <button onClick={addUPI} disabled={saving}
-            style={{ background:Y, border:'none', borderRadius:12, padding:'12px 18px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>
-            Add
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default function ProfileScreen({ user, city, setCity, bookings, showToast, setTab }) {
-  const [modal,        setModal]       = useState(null)
-  const [subscreen,    setSubscreen]   = useState(null)
-  const [editingCity,  setEditingCity] = useState(false)
-  const [avatarUrl,    setAvatarUrl]   = useState(null)
-  const [contactEdit,  setContactEdit] = useState(false)
-  const [contEmail,    setContEmail]   = useState('')
+export default function ProfileScreen({ user, city, setCity, showToast, setScreen }) {
+  const [contactEdit,  setContactEdit]  = useState(false)
+  const [contEmail,    setContEmail]    = useState('')
   const [contAltPhone, setContAltPhone] = useState('')
-  const [contAddress,  setContAddress] = useState('')
-  const [contSaving,   setContSaving]  = useState(false)
-  const [profileData,  setProfileData] = useState(null)
+  const [contAddress,  setContAddress]  = useState('')
+  const [contSaving,   setContSaving]   = useState(false)
 
-  // Load profile data once
-  useState(() => {
-    if (user?.id) {
-      sb.from('profiles').select('email,alternate_phone,address,phone').eq('id', user.id).single()
-        .then(({ data }) => {
-          if (data) {
-            setProfileData(data)
-            setContEmail(data.email||'')
-            setContAltPhone(data.alternate_phone||'')
-            setContAddress(data.address||'')
-          }
-        })
-    }
-  })
+  const [signingOut, setSigningOut] = useState(false)
 
-  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
-
-  if (subscreen === 'help')
-    return <HelpScreen user={user} onBack={() => setSubscreen(null)} showToast={showToast} />
-  if (subscreen === 'addresses')
-    return <AddressScreen user={user} onBack={() => setSubscreen(null)} showToast={showToast} />
-  if (subscreen?.startsWith('legal-'))
-    return <LegalScreen section={subscreen.replace('legal-', '')} onBack={() => setSubscreen(null)} />
-
-  async function changeCity(c) {
-    setCity(c)
-    setEditingCity(false)
-    if (user) await sb.from('profiles').upsert({ id: user.id, city: c })
-    showToast('City changed to ' + c)
+  async function saveContact() {
+    if (!user) return
+    setContSaving(true)
+    const { error } = await sb.from('profiles').update({
+      email: contEmail.trim() || null,
+      alternate_phone: contAltPhone.replace(/\D/g,'').slice(0,10) || null,
+      address: contAddress.trim() || null,
+    }).eq('id', user.id)
+    if (error) showToast('Save failed: ' + error.message)
+    else { showToast('Contact info saved ✓'); setContactEdit(false) }
+    setContSaving(false)
   }
 
-  if (editingCity) {
+  async function signOut() {
+    setSigningOut(true)
+    try {
+      await sb.auth.signOut()
+      setScreen('landing')
+    } catch { showToast('Sign out failed'); setSigningOut(false) }
+  }
+
+  const phone = user?.phone?.replace('+91','')
+
+  if (contactEdit) {
     return (
-      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', background:'#F2F2F7' }}>
-        <div style={{ background:BK, padding:'48px 20px 20px', flexShrink:0 }}>
-          <button onClick={() => setEditingCity(false)}
-            style={{ background:'rgba(255,255,255,.1)', border:'none', borderRadius:10, padding:'6px 14px', color:'#fff', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:600, marginBottom:12 }}>
-            Back
-          </button>
-          <h1 style={{ fontSize:22, fontWeight:800, color:Y }}>Change City</h1>
-          <p style={{ fontSize:13, color:'#636366', marginTop:4 }}>Select your city to find nearby workers</p>
+      <div style={{ flex:1, overflowY:'auto', padding:20, display:'flex', flexDirection:'column', gap:14 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:4 }}>
+          <button onClick={() => setContactEdit(false)} style={{ background:'#f2f2f7', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>← Back</button>
+          <h2 style={{ fontWeight:800, fontSize:17, color:'#1c1c1e' }}>Edit Contact Info</h2>
         </div>
-        <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:8 }}>
-          {KA_CITIES.map(c => (
-            <button key={c} onClick={() => changeCity(c)}
-              style={{ background: c===city ? YL : '#fff', border:'1.5px solid '+(c===city ? Y : '#E5E5EA'),
-                borderRadius:12, padding:'13px 16px', fontWeight:600, fontSize:14, cursor:'pointer',
-                fontFamily:'inherit', textAlign:'left', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              {c}
-              {c === city && <span style={{ color:YD, fontWeight:800 }}>Current</span>}
-            </button>
-          ))}
-        </div>
+        {[
+          ['Email Address', 'email', contEmail, setContEmail, 'you@gmail.com'],
+          ['Alternate Phone', 'tel', contAltPhone, v => setContAltPhone(v.replace(/\D/g,'').slice(0,10)), '98765 43210'],
+          ['Home Address', 'text', contAddress, setContAddress, '123, MG Road, Bengaluru'],
+        ].map(([label, type, val, set, ph]) => (
+          <div key={label}>
+            <label style={{ fontSize:11, fontWeight:700, color:'#8e8e93', display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:.5 }}>{label}</label>
+            <input value={val} onChange={e => set(e.target.value)} type={type} placeholder={ph}
+              style={{ width:'100%', background:'#fff', border:'1.5px solid #e5e7eb', borderRadius:12, padding:12, fontSize:14, outline:'none', fontFamily:'inherit', color:'#1c1c1e', boxSizing:'border-box' }} />
+          </div>
+        ))}
+        <button onClick={saveContact} disabled={contSaving}
+          style={{ width:'100%', background:PURPLE, border:'none', borderRadius:14, padding:15, color:'#fff', fontWeight:800, fontSize:15, cursor:'pointer', fontFamily:'inherit', opacity:contSaving?0.6:1, marginTop:8 }}>
+          {contSaving ? 'Saving...' : 'Save Contact Info ✓'}
+        </button>
       </div>
     )
   }
 
-  async function saveContact() {
-    if (!user?.id) return
-    setContSaving(true)
-    await sb.from('profiles').upsert({
-      id: user.id,
-      email: contEmail.trim()||null,
-      alternate_phone: contAltPhone.replace(/\D/g,'').slice(0,10)||null,
-      address: contAddress.trim()||null,
-    })
-    setContactEdit(false)
-    setContSaving(false)
-    showToast('Contact info saved ✓')
-  }
+  return (
+    <div style={{ flex:1, overflowY:'auto' }}>
+      {/* Header */}
+      <div style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', padding:'56px 20px 24px', textAlign:'center' }}>
+        <div style={{ width:72, height:72, borderRadius:'50%', background:'rgba(255,255,255,.25)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:32, margin:'0 auto 12px' }}>
+          👤
+        </div>
+        <p style={{ color:'#fff', fontWeight:800, fontSize:20 }}>{phone ? '+91 '+phone : 'Customer'}</p>
+        <p style={{ color:'rgba(255,255,255,.7)', fontSize:13, marginTop:4 }}>{city || 'Bengaluru'} • Kaam Ready</p>
+      </div>
 
-  const menus = [
-    { ico:'&#128203;', label:'My Bookings',        bg:'#D1FAE5', action:() => setTab('bookings') },
-    { ico:'&#128222;', label:'Contact Info',        bg:'#DBEAFE', action:() => setContactEdit(true) },
-    { ico:'&#128205;', label:'Change City',         bg:'#FFF8D6', action:() => setEditingCity(true) },
-    { ico:'&#127968;', label:'Saved Addresses',     bg:'#FFF8D6', action:() => setSubscreen('addresses') },
-    { ico:'&#128179;', label:'Payment Methods',     bg:'#F3F4F6', action:() => setModal('payment') },
-    { ico:'&#10067;',  label:'Help & Support',      bg:'#FEF3C7', action:() => setSubscreen('help') },
-    { ico:'&#128274;', label:'Privacy Policy',      bg:'#F3F4F6', action:() => setSubscreen('legal-privacy') },
-    { ico:'&#128220;', label:'Terms & Conditions',  bg:'#F3F4F6', action:() => setSubscreen('legal-terms') },
-    { ico:'&#128176;', label:'Refund Policy',       bg:'#F3F4F6', action:() => setSubscreen('legal-refund') },
-    { ico:'&#10060;',  label:'Cancellation Policy', bg:'#F3F4F6', action:() => setSubscreen('legal-cancel') },
-  ]
-
-  // Contact Info sub-screen
-  if (contactEdit) {
-    return (
-      <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
-        <div style={{ background:'#fff', borderRadius:20, padding:20, border:'1px solid #eee' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-            <p style={{ fontWeight:800, fontSize:17 }}>📞 Contact Info</p>
-            <button onClick={() => setContactEdit(false)} style={{ background:'#f2f2f7', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>Back</button>
+      <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
+        {/* Contact Info card */}
+        <div style={{ background:'#fff', borderRadius:16, padding:16, border:'1px solid #f0f0f0' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+            <p style={{ fontWeight:800, fontSize:15, color:'#1c1c1e' }}>📞 Contact Info</p>
+            <button onClick={() => setContactEdit(true)}
+              style={{ background:PURPLE+'15', border:'none', borderRadius:8, padding:'5px 12px', color:PURPLE, fontWeight:700, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>
+              Edit
+            </button>
           </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {[
+              ['Phone', '+91 '+phone],
+              ['City', city || 'Not set'],
+            ].map(([l,v]) => (
+              <div key={l} style={{ display:'flex', gap:12 }}>
+                <span style={{ color:'#8e8e93', fontSize:12, fontWeight:600, minWidth:100 }}>{l}</span>
+                <span style={{ color:'#1c1c1e', fontSize:13 }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Menu */}
+        <div style={{ background:'#fff', borderRadius:16, border:'1px solid #f0f0f0', overflow:'hidden' }}>
           {[
-            ['Email Address', 'email', contEmail, setContEmail, 'you@gmail.com'],
-            ['Alternate Phone', '
+            { ico:'📋', label:'My Bookings', action: () => {} },
+            { ico:'🏙️', label:'Change City', action: () => setScreen('city') },
+            { ico:'❓', label:'Help & Support', action: () => showToast('Call us: 1800-XXX-XXXX') },
+            { ico:'📄', label:'Terms & Privacy', action: () => showToast('Visit kaamready.in for terms') },
+          ].map(({ ico, label, action }) => (
+            <div key={label} onClick={action}
+              style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', borderBottom:'1px solid #f5f5f7', cursor:'pointer' }}>
+              <span style={{ fontSize:20 }}>{ico}</span>
+              <span style={{ fontSize:15, fontWeight:500, flex:1, color:'#1c1c1e' }}>{label}</span>
+              <span style={{ color:'#c7c7cc', fontSize:18 }}>›</span>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={signOut} disabled={signingOut}
+          style={{ width:'100%', background:'#fff0f0', border:'1.5px solid #fecaca', borderRadius:14, padding:15, color:'#ef4444', fontWeight:700, fontSize:15, cursor:'pointer', fontFamily:'inherit', opacity:signingOut?0.6:1 }}>
+          {signingOut ? 'Signing out...' : '🚪 Sign Out'}
+        </button>
+        <p style={{ textAlign:'center', fontSize:11, color:'#c7c7cc', paddingBottom:8 }}>Kaam Ready v2.0 — Karnataka 🇮🇳</p>
+      </div>
+    </div>
+  )
+}

@@ -5,7 +5,6 @@ import Toast   from './components/Toast'
 import TermsModal, { termsAccepted, acceptTerms } from './components/TermsModal'
 import { SERVICES } from './constants'
 
-// ── Lazy-loaded screens (code splitting) ─────────────────────────────────────
 const LandingScreen  = lazy(() => import('./screens/LandingScreen'))
 const LoginScreen    = lazy(() => import('./screens/LoginScreen'))
 const OTPScreen      = lazy(() => import('./screens/OTPScreen'))
@@ -16,7 +15,6 @@ const SearchScreen   = lazy(() => import('./screens/SearchScreen'))
 const BookingsScreen = lazy(() => import('./screens/BookingsScreen'))
 const ProfileScreen  = lazy(() => import('./screens/ProfileScreen'))
 
-// ── Full-screen loader shown while a lazy chunk loads ────────────────────────
 function PageLoader() {
   return (
     <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#F2F2F7' }}>
@@ -110,4 +108,40 @@ export default function App() {
           {toast && <Toast msg={toast} />}
         </>
       )}
-      {screen === 'login' && <><LoginScreen {...ctx} setScreen={
+      {screen === 'login' && (
+        <>
+          <LoginScreen {...ctx} setScreen={setScreen} />
+          {toast && <Toast msg={toast} />}
+        </>
+      )}
+      {screen === 'otp' && (
+        <>
+          <OTPScreen {...ctx} setUser={setUser} setScreen={setScreen} loadProfile={loadProfile} />
+          {toast && <Toast msg={toast} />}
+        </>
+      )}
+      {screen === 'city' && (
+        <>
+          <CityScreen {...ctx} />
+          {toast && <Toast msg={toast} />}
+        </>
+      )}
+      {screen === 'main' && (
+        <div style={{
+          height:'100vh', display:'flex', flexDirection:'column',
+          background:'#F2F2F7', maxWidth:430, margin:'0 auto',
+          overflow:'hidden', position:'relative',
+        }}>
+          {showTerms && <TermsModal onAccept={() => { acceptTerms(); setShowTerms(false) }} />}
+          {tab === 'home'     && <HomeScreen     {...ctx} />}
+          {tab === 'book'     && <BookScreen     {...ctx} />}
+          {tab === 'search'   && <SearchScreen   {...ctx} />}
+          {tab === 'bookings' && <BookingsScreen {...ctx} />}
+          {tab === 'profile'  && <ProfileScreen  {...ctx} />}
+          <TabBar tab={tab} setTab={setTab} />
+          {toast && <Toast msg={toast} />}
+        </div>
+      )}
+    </Suspense>
+  )
+}
