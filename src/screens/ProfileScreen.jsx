@@ -71,6 +71,27 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
   const [subscreen,    setSubscreen]   = useState(null)
   const [editingCity,  setEditingCity] = useState(false)
   const [avatarUrl,    setAvatarUrl]   = useState(null)
+  const [contactEdit,  setContactEdit] = useState(false)
+  const [contEmail,    setContEmail]   = useState('')
+  const [contAltPhone, setContAltPhone] = useState('')
+  const [contAddress,  setContAddress] = useState('')
+  const [contSaving,   setContSaving]  = useState(false)
+  const [profileData,  setProfileData] = useState(null)
+
+  // Load profile data once
+  useState(() => {
+    if (user?.id) {
+      sb.from('profiles').select('email,alternate_phone,address,phone').eq('id', user.id).single()
+        .then(({ data }) => {
+          if (data) {
+            setProfileData(data)
+            setContEmail(data.email||'')
+            setContAltPhone(data.alternate_phone||'')
+            setContAddress(data.address||'')
+          }
+        })
+    }
+  })
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
 
@@ -114,9 +135,24 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
     )
   }
 
+  async function saveContact() {
+    if (!user?.id) return
+    setContSaving(true)
+    await sb.from('profiles').upsert({
+      id: user.id,
+      email: contEmail.trim()||null,
+      alternate_phone: contAltPhone.replace(/\D/g,'').slice(0,10)||null,
+      address: contAddress.trim()||null,
+    })
+    setContactEdit(false)
+    setContSaving(false)
+    showToast('Contact info saved ✓')
+  }
+
   const menus = [
     { ico:'&#128203;', label:'My Bookings',        bg:'#D1FAE5', action:() => setTab('bookings') },
-    { ico:'&#128205;', label:'Change City',         bg:'#DBEAFE', action:() => setEditingCity(true) },
+    { ico:'&#128222;', label:'Contact Info',        bg:'#DBEAFE', action:() => setContactEdit(true) },
+    { ico:'&#128205;', label:'Change City',         bg:'#FFF8D6', action:() => setEditingCity(true) },
     { ico:'&#127968;', label:'Saved Addresses',     bg:'#FFF8D6', action:() => setSubscreen('addresses') },
     { ico:'&#128179;', label:'Payment Methods',     bg:'#F3F4F6', action:() => setModal('payment') },
     { ico:'&#10067;',  label:'Help & Support',      bg:'#FEF3C7', action:() => setSubscreen('help') },
@@ -126,39 +162,15 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
     { ico:'&#10060;',  label:'Cancellation Policy', bg:'#F3F4F6', action:() => setSubscreen('legal-cancel') },
   ]
 
-  return (
-    <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
-      {modal === 'payment' && <PaymentModal user={user} onClose={() => setModal(null)} showToast={showToast} />}
-
-      <Card style={{ textAlign:'center', padding:24 }}>
-        <div style={{ marginBottom:14 }}>
-          <AvatarUpload userId={user?.id} currentUrl={avatarUrl} table="profiles"
-            onUploaded={url => setAvatarUrl(url)} />
-        </div>
-        <p style={{ fontWeight:800, fontSize:18 }}>{displayName}</p>
-        {city && <p style={{ fontSize:13, color:'#888', marginTop:4 }}>{city}, Karnataka</p>}
-        {user?.phone && <p style={{ fontSize:13, color:'#888', marginTop:2 }}>{user.phone}</p>}
-        <div style={{ display:'flex', gap:8, justifyContent:'center', marginTop:12 }}>
-          <span style={{ background:YL, color:YD, fontSize:11, fontWeight:700, padding:'4px 10px', borderRadius:8 }}>
-            {bookings.length} Booking{bookings.length !== 1 ? 's' : ''}
-          </span>
-          <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'4px 10px', borderRadius:8 }}>Verified</span>
-        </div>
-      </Card>
-
-      <Card>
-        {menus.map(({ ico, label, bg, action }) => (
-          <div key={label} onClick={action}
-            style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 0', borderBottom:'1px solid #f5f5f5', cursor:'pointer' }}>
-            <div style={{ width:36, height:36, borderRadius:10, background:bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }} dangerouslySetInnerHTML={{ __html: ico }} />
-            <span style={{ fontSize:15, fontWeight:500, flex:1 }}>{label}</span>
-            <span style={{ color:'#ddd', fontSize:18 }}>></span>
+  // Contact Info sub-screen
+  if (contactEdit) {
+    return (
+      <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+        <div style={{ background:'#fff', borderRadius:20, padding:20, border:'1px solid #eee' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+            <p style={{ fontWeight:800, fontSize:17 }}>📞 Contact Info</p>
+            <button onClick={() => setContactEdit(false)} style={{ background:'#f2f2f7', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>Back</button>
           </div>
-        ))}
-      </Card>
-
-      <Btn label="Sign Out" variant="outline" onClick={() => sb.auth.signOut()} />
-      <p style={{ textAlign:'center', fontSize:12, color:'#ccc', paddingBottom:8 }}>Kaam Ready v1.0 - Made in Karnataka</p>
-    </div>
-  )
-}
+          {[
+            ['Email Address', 'email', contEmail, setContEmail, 'you@gmail.com'],
+            ['Alternate Phone', '
