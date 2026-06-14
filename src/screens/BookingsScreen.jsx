@@ -1,66 +1,23 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { sb } from '../lib/supabase'
 import { SERVICES } from '../constants'
-import Btn from '../components/Btn'
+import Card from '../components/Card'
+import { Y, RED } from '../theme'
+import Btn  from '../components/Btn'
 
-const SVC_COLORS = {
-  elec:{bg:'#FFF9E6'},plumb:{bg:'#EFF6FF'},clean:{bg:'#ECFDF5'},carpen:{bg:'#FFF7ED'},
-  paint:{bg:'#F5F3FF'},pest:{bg:'#FFF1F2'},mech:{bg:'#F1F5F9'},labor:{bg:'#EFF6FF'},emerg:{bg:'#FFF1F2'},
+const YD='#B8900A'
+const STATUS_STYLE = {
+  completed: { bg:'#D1FAE5', c:'#065F46', label:'✓ Done'       },
+  searching:  { bg:'#FFF8D6', c:'#B8900A', label:'Searching...' },
+  assigned:   { bg:'#DBEAFE', c:'#1E40AF', label:'Active'       },
+  priced:     { bg:'#FEF3C7', c:'#92400E', label:'💳 Payment Due' },
+  cancelled:  { bg:'#FEE2E2', c:'#991B1B', label:'Cancelled'    },
+  scheduled:  { bg:'#EDE9FE', c:'#5B21B6', label:'📅 Scheduled'  },
 }
-const STATUS_CFG = {
-  completed:       { bg:'#D1FAE5', c:'#065F46', label:'✓ Done',         dot:'#10B981' },
-  searching:       { bg:'#FFF8D6', c:'#B8900A', label:'Searching...',   dot:'#F5C000' },
-  assigned:        { bg:'#DBEAFE', c:'#1E40AF', label:'Active',         dot:'#3B82F6' },
-  priced:          { bg:'#FEF3C7', c:'#92400E', label:'💳 Pay Now',     dot:'#F59E0B' },
-  payment_claimed: { bg:'#E8F5E9', c:'#1B5E20', label:'🔄 Verifying',   dot:'#4CAF50' },
-  cancelled:       { bg:'#FEE2E2', c:'#991B1B', label:'Cancelled',      dot:'#EF4444' },
-  scheduled:       { bg:'#EDE9FE', c:'#5B21B6', label:'📅 Scheduled',   dot:'#7C3AED' },
-}
-function getBadgeCfg(b) {
-  if (b.status === 'priced' && b.payment_status === 'claimed') return STATUS_CFG.payment_claimed
-  return STATUS_CFG[b.status] || { bg:'#F5F5F5', c:'#666', label: b.status, dot:'#999' }
-}
-const FILTERS = [
-  { id:'all',    label:'All'     },
-  { id:'active', label:'Active'  },
-  { id:'done',   label:'Done'    },
-]
-
-export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorker, showToast, setResume }) {
-  const [bookings, setBookings] = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [filter,   setFilter]   = useState('all')
+export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorker, showToast }) {
   const [reportFor, setReportFor] = useState(null)
-  const [reason,    setReason]    = useState('')
-  const [busy,      setBusy]      = useState(false)
-
-  const chanRef = useRef(null)
-
-  const load = useCallback(async (uid) => {
-    setLoading(true)
-    const { data } = await sb.from('bookings').select('*')
-      .eq('user_id', uid).order('created_at', { ascending:false })
-    if (data) setBookings(data)
-    setLoading(false)
-  }, [])
-
-  // Initial load + realtime subscription for live updates
-  useEffect(() => {
-    if (!user?.id) return
-    load(user.id)
-    // Subscribe to booking changes for this user
-    chanRef.current = sb.channel('bookings-user-' + user.id)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: 'user_id=eq.' + user.id },
-        () => load(user.id))
-      .subscribe()
-    // Also refresh when tab becomes visible (user returns from UPI app)
-    function onVisible() { if (document.visibilityState === 'visible') load(user.id) }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      chanRef.current && sb.removeChannel(chanRef.current)
-      document.removeEventListener('visibilitychange', onVisible)
-    }
-  }, [user?.id, load])
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
 
   async function rebook(b) {
     if (!b.worker_id) return
@@ -71,261 +28,111 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
     setTab('book')
   }
 
-  function resumeToBook(b) {
-    setResume && setResume(b)
-    setSelSvc(SERVICES.find(s => s.id === b.service_id) || { id: b.service_id, lbl: b.service, ico: '🔧', range: '' })
-    setTab('book')
-  }
-
   async function submitReport() {
     if (!reason.trim() || busy) return
     setBusy(true)
     const { error } = await sb.from('disputes').insert({
-      booking_id:reportFor.id, raised_by:user.id, raised_by_role:'customer',
-      reason:reason.trim(), status:'open',
+      booking_id: reportFor.id, raised_by: user.id, raised_by_role: 'customer',
+      reason: reason.trim(), status: 'open',
     })
     setBusy(false)
     if (error) { showToast && showToast(error.message); return }
     setReportFor(null); setReason('')
-    showToast && showToast('Reported — our team will reach out ✓')
+    showToast && showToast('Reported — our team will call you ✓')
+  }
+  const [bookings, setBookings] = useState([])
+  const [loading,  setLoading]  = useState(true)
+
+  useEffect(() => { if (user?.id) load(user.id) }, [user?.id])
+
+  async function load(uid) {
+    setLoading(true)
+    const { data, error } = await sb.from('bookings').select('*')
+      .eq('user_id', uid).order('created_at', { ascending: false })
+    if (data) setBookings(data)
+    setLoading(false)
   }
 
-  const filtered = bookings.filter(b => {
-    if (filter==='active') return ['searching','assigned','priced','scheduled'].includes(b.status)
-    if (filter==='done')   return ['completed','cancelled'].includes(b.status)
-    return true
-  })
-
-  function getSvc(b) { return SERVICES.find(s=>s.lbl===b.service || s.id===b.service_id) }
-
   return (
-    <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', background:'#F5F5F8' }}>
-
-      {/* Header */}
-      <div style={{ background:'#fff', padding:'max(52px, calc(20px + env(safe-area-inset-top))) 20px 0', borderBottom:'1px solid #F0F0F2', flexShrink:0 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-          <h1 style={{ fontSize:22, fontWeight:800, color:'#1A1A1A' }}>My Bookings</h1>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <span style={{ background:'#F5F5F8', color:'#6B7280', fontSize:12, fontWeight:700,
-              padding:'4px 10px', borderRadius:20 }}>
-              {bookings.length} total
-            </span>
-            <button onClick={() => load(user.id)}
-              style={{ background:'#F5F5F8', border:'none', borderRadius:10, padding:'6px 10px',
-                cursor:'pointer', fontSize:14, display:'flex', alignItems:'center',
-                transition:'transform .2s cubic-bezier(.34,1.56,.64,1)' }}
-              title="Refresh"
-              onPointerDown={e => e.currentTarget.style.transform='rotate(180deg) scale(.9)'}
-              onPointerUp={e => e.currentTarget.style.transform='rotate(0deg) scale(1)'}>
-              🔄
-            </button>
-          </div>
-        </div>
-        {/* Filter tabs */}
-        <div style={{ display:'flex', gap:6, paddingBottom:12, overflowX:'auto', overflowY:'visible',
-          WebkitOverflowScrolling:'touch', scrollbarWidth:'none', msOverflowStyle:'none',
-          paddingLeft:2, paddingRight:2, margin:'0 -2px' }}>
-          <style>{'.kr-filter-bar::-webkit-scrollbar{display:none}'}</style>
-          {FILTERS.map(f => (
-            <button key={f.id} onClick={() => setFilter(f.id)}
-              style={{
-                padding:'8px 18px', borderRadius:20, border:'none', cursor:'pointer',
-                fontFamily:'inherit', fontWeight:700, fontSize:13,
-                transition:'all .2s cubic-bezier(.34,1.56,.64,1)',
-                background: filter===f.id ? '#F5C000' : '#F5F5F8',
-                color: filter===f.id ? '#1A1A1A' : '#6B7280',
-                flexShrink: 0,
-                boxShadow: filter===f.id ? '0 3px 10px rgba(245,192,0,.35)' : 'none',
-                transform: filter===f.id ? 'scale(1.05)' : 'scale(1)',
-              }}>
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Report modal */}
+    <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+      <p style={{ fontWeight:800, fontSize:22, padding:'4px 0 0' }}>My Bookings</p>
       {reportFor && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:999,
-          display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
-          <div style={{ background:'#fff', borderRadius:'24px 24px 0 0', width:'100%', maxWidth:430,
-            padding:'20px 20px 40px', animation:'kr-reveal-up .35s cubic-bezier(.22,1,.36,1)' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-              <p style={{ fontWeight:800, fontSize:18 }}>⚠️ Report a Problem</p>
-              <button onClick={() => { setReportFor(null); setReason('') }}
-                style={{ background:'#F5F5F8', border:'none', borderRadius:10, padding:'6px 12px',
-                  cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13 }}>
-                Close
-              </button>
+        <div role="dialog" aria-modal="true" aria-label="Report Problem" style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:999, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+          <div style={{ background:'#fff', borderRadius:'24px 24px 0 0', width:'100%', maxWidth:430, padding:'20px 20px 36px' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+              <p style={{ fontWeight:800, fontSize:17 }}>⚠️ Report a Problem</p>
+              <button type="button" onClick={() => { setReportFor(null); setReason('') }} style={{ background:'#f0f0f0', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit' }}>Close</button>
             </div>
-            <p style={{ fontSize:12, color:'#9CA3AF', marginBottom:12 }}>
-              {reportFor.service} · {reportFor.amount ? '₹'+reportFor.amount : ''}
-            </p>
+            <p style={{ fontSize:12, color:'#888', marginBottom:10 }}>{reportFor.service} · ₹{reportFor.amount||0}</p>
             <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3}
               placeholder="What went wrong? e.g. charged more than agreed, poor work quality..."
-              style={{ width:'100%', border:'1.5px solid #EBEBEB', borderRadius:13, padding:13,
-                fontSize:14, outline:'none', fontFamily:'inherit', resize:'none', marginBottom:14,
-                background:'#FAFAFA', boxSizing:'border-box' }} />
-            <button onClick={submitReport} disabled={busy}
-              style={{ width:'100%', background:'#EF4444', color:'#fff', border:'none', borderRadius:14,
-                padding:15, fontWeight:800, fontSize:14, cursor:'pointer', fontFamily:'inherit',
-                opacity:busy?.6:1 }}>
+              style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:12, fontSize:14, outline:'none', fontFamily:'inherit', resize:'none', marginBottom:12 }} />
+            <button type="button" onClick={submitReport} disabled={busy}
+              style={{ width:'100%', background:RED, color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:800, fontSize:14, cursor:'pointer', fontFamily:'inherit', opacity:busy?.6:1 }}>
               {busy ? 'Sending...' : 'Submit Report'}
             </button>
           </div>
         </div>
       )}
-
-      {/* List */}
-      <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:10 }}>
-        {loading ? (
-          <div style={{ textAlign:'center', padding:'48px 24px' }}>
-            <div style={{ width:48, height:48, borderRadius:'50%', border:'3px solid #F5C000',
-              borderTopColor:'transparent', margin:'0 auto 16px', animation:'spin .8s linear infinite' }} />
-            <p style={{ color:'#9CA3AF', fontSize:14 }}>Loading bookings...</p>
-          </div>
-        ) : filtered.length===0 ? (
-          <div style={{ textAlign:'center', padding:'56px 24px' }}>
-            <div style={{ fontSize:56, marginBottom:16 }}>📋</div>
-            <p style={{ fontWeight:800, fontSize:18, color:'#1A1A1A' }}>
-              {filter==='all' ? 'No bookings yet' : `No ${filter} bookings`}
-            </p>
-            <p style={{ fontSize:13, color:'#9CA3AF', margin:'8px 0 24px' }}>
-              {filter==='all' ? 'Book your first service to get started' : 'Nothing here right now'}
-            </p>
-            {filter==='all' && <Btn label="Book Now →" onClick={() => setTab('home')}
-              style={{ width:'auto', padding:'13px 28px', margin:'0 auto', display:'block' }} />}
-          </div>
-        ) : filtered.map(b => {
-          const st  = getBadgeCfg(b) || STATUS_CFG.searching
-          const svc = getSvc(b)
-          const c   = SVC_COLORS[svc?.id] || { bg:'#F5F5F8' }
-          const isActive = ['searching','assigned','priced','scheduled'].includes(b.status)
-          return (
-            <div key={b.id} className="kr-card-hover" style={{
-              background:'#fff', borderRadius:18,
-              boxShadow:'0 1px 3px rgba(0,0,0,.05), 0 4px 14px rgba(0,0,0,.04)',
-              border: isActive ? '2px solid #F5C000' : '1px solid #F0F0F2',
-              overflow:'hidden',
-            }}>
-              {/* Card header */}
-              <div style={{ padding:'14px 16px', display:'flex', alignItems:'flex-start', gap:12 }}>
-                <div style={{ width:46, height:46, borderRadius:14, background:c.bg,
-                  display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>
-                  {svc?.ico||'🔧'}
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
-                    <p style={{ fontSize:15, fontWeight:700, color:'#1A1A1A' }}>{b.service}</p>
-                    <span style={{ background:st.bg, color:st.c, fontSize:11, fontWeight:700,
-                      padding:'4px 10px', borderRadius:20, flexShrink:0 }}>
-                      {st.label}
-                    </span>
-                  </div>
-                  <p style={{ fontSize:12, color:'#9CA3AF', marginTop:3 }}>
-                    {new Date(b.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}
-                    {b.is_scheduled && b.scheduled_at && (
-                      <span style={{ marginLeft:6, color:'#7C3AED' }}>
-                        · 📅 {new Date(b.scheduled_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
-                      </span>
-                    )}
-                  </p>
+      {loading ? (
+        <Card style={{ textAlign:'center', padding:'40px 24px' }}>
+          <div style={{ fontSize:32, marginBottom:10 }}>⏳</div>
+          <p style={{ color:'#888', fontSize:14 }}>Loading your bookings...</p>
+        </Card>
+      ) : bookings.length===0 ? (
+        <Card style={{ textAlign:'center', padding:'48px 24px' }}>
+          <div style={{ fontSize:52, marginBottom:14 }}>📋</div>
+          <p style={{ fontWeight:800, fontSize:17 }}>No bookings yet</p>
+          <p style={{ fontSize:13, color:'#888', margin:'8px 0 20px' }}>Book your first service to get started</p>
+          <Btn label="Book Now →" onClick={() => setTab('home')} style={{ width:'auto', padding:'14px 28px' }} />
+        </Card>
+      ) : bookings.map(b => {
+        const st = STATUS_STYLE[b.status]||STATUS_STYLE.searching
+        const svc = SERVICES.find(s=>s.lbl===b.service)
+        return (
+          <Card key={b.id}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ width:42, height:42, borderRadius:12, background:'#FFF8D6', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>{svc?.ico||'🔧'}</div>
+                <div>
+                  <p style={{ fontSize:15, fontWeight:700 }}>{b.service}</p>
+                  <p style={{ fontSize:12, color:'#888' }}>{new Date(b.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</p>
                 </div>
               </div>
-
-              {/* Worker row */}
-              {b.worker?.name && (
-                <div style={{ margin:'0 16px 12px', display:'flex', alignItems:'center', gap:10,
-                  background:'#FAFAFA', borderRadius:12, padding:'10px 12px' }}>
-                  <div style={{ width:34, height:34, borderRadius:10, background:'#FFF8D6',
-                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
-                    {b.worker.ico||'👷'}
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <p style={{ fontSize:13, fontWeight:700, color:'#1A1A1A' }}>{b.worker.name}</p>
-                    <p style={{ fontSize:11, color:'#9CA3AF' }}>
-                      {b.worker.skill} · ★ {b.worker.rating||'5.0'}
-                    </p>
-                  </div>
-                  {b.worker.phone && (
-                    <a href={'tel:+91'+b.worker.phone}
-                      style={{ width:34, height:34, borderRadius:10, background:'#D1FAE5',
-                        display:'flex', alignItems:'center', justifyContent:'center',
-                        fontSize:16, textDecoration:'none' }}>
-                      📞
-                    </a>
-                  )}
-                </div>
-              )}
-
-              {/* Address */}
-              {b.address && (
-                <p style={{ fontSize:12, color:'#9CA3AF', padding:'0 16px', marginBottom:10 }}>
-                  📍 {b.address}
-                </p>
-              )}
-
-              {/* Pay Now banner for priced bookings */}
-              {b.status === 'priced' && b.payment_status !== 'claimed' && (
-                <div style={{ margin:'0 16px 12px' }}>
-                  <button onClick={() => resumeToBook(b)}
-                    style={{ width:'100%', background:'#F5C000', border:'none', borderRadius:13,
-                      padding:'13px 16px', fontWeight:800, fontSize:14, cursor:'pointer',
-                      fontFamily:'inherit', color:'#1A1A1A', display:'flex', justifyContent:'space-between',
-                      alignItems:'center', boxShadow:'0 4px 14px rgba(245,192,0,.4)' }}>
-                    <span>💳 Pay ₹{b.amount} Now</span>
-                    <span>›</span>
-                  </button>
-                </div>
-              )}
-              {b.status === 'priced' && b.payment_status === 'claimed' && (
-                <div style={{ margin:'0 16px 12px', background:'#E8F5E9', borderRadius:13, padding:'12px 16px', display:'flex', alignItems:'center', gap:10 }}>
-                  <span style={{ fontSize:20 }}>🔄</span>
-                  <div>
-                    <p style={{ margin:0, fontWeight:700, fontSize:13, color:'#1B5E20' }}>Payment sent — Admin verifying</p>
-                    <p style={{ margin:'2px 0 0', fontSize:11, color:'#2E7D32' }}>Will be marked complete once confirmed</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Actions + amount */}
-              {(b.status==='completed' || b.status==='cancelled' || b.amount > 0) && (
-                <div style={{ borderTop:'1px solid #F0F0F2', padding:'12px 16px',
-                  display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
-                  <div style={{ display:'flex', gap:8, flex:1 }}>
-                    {b.worker_id && b.status==='completed' && (
-                      <button onClick={() => rebook(b)}
-                        style={{ flex:1, background:'#FFF8D6', color:'#B8900A', border:'none',
-                          borderRadius:12, padding:'9px 8px', fontWeight:700, fontSize:12,
-                          cursor:'pointer', fontFamily:'inherit' }}>
-                        🔁 Rebook
-                      </button>
-                    )}
-                    {b.status==='completed' && (
-                      <button onClick={() => setReportFor(b)}
-                        style={{ flex:1, background:'#FEE2E2', color:'#991B1B', border:'none',
-                          borderRadius:12, padding:'9px 8px', fontWeight:700, fontSize:12,
-                          cursor:'pointer', fontFamily:'inherit' }}>
-                        ⚠️ Report
-                      </button>
-                    )}
-                  </div>
-                  {b.amount > 0 && (
-                    <p style={{ fontSize:16, fontWeight:800, color:'#B8900A', flexShrink:0 }}>₹{b.amount}</p>
-                  )}
-                </div>
-              )}
-
-              {b.rating > 0 && (
-                <div style={{ padding:'0 16px 12px' }}>
-                  <span style={{ fontSize:14, color:'#F59E0B' }}>{'★'.repeat(b.rating)}{'☆'.repeat(5-b.rating)}</span>
-                </div>
-              )}
+              <span style={{ background:st.bg, color:st.c, fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:8 }}>{st.label}</span>
             </div>
-          )
-        })}
-        <div style={{ height:8 }} />
-      </div>
+            {b.worker?.name && (
+              <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f9f9f9', borderRadius:10, padding:'8px 10px', marginBottom:8 }}>
+                <div style={{ width:32, height:32, borderRadius:10, background:'#FFF8D6', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>👷</div>
+                <div>
+                  <p style={{ fontSize:13, fontWeight:700 }}>{b.worker.name}</p>
+                  <p style={{ fontSize:11, color:'#888' }}>{b.worker.skill} · ★ {b.worker.rating||'5.0'}</p>
+                </div>
+              </div>
+            )}
+            <p style={{ fontSize:12, color:'#aaa', marginBottom:b.amount?10:0 }}>📍 {b.address||b.city}</p>
+            {(b.status==='completed' || b.status==='cancelled') && (
+              <div style={{ display:'flex', gap:8, margin:'10px 0' }}>
+                {b.worker_id && b.status==='completed' && (
+                  <button type="button" onClick={() => rebook(b)}
+                    style={{ flex:1, background:'#FFF8D6', color:'#B8900A', border:'none', borderRadius:10, padding:'9px 0', fontWeight:700, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>🔁 Rebook Worker</button>
+                )}
+                {b.status==='completed' && (
+                  <button type="button" onClick={() => setReportFor(b)}
+                    style={{ flex:1, background:'#FEE2E2', color:'#991B1B', border:'none', borderRadius:10, padding:'9px 0', fontWeight:700, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>⚠️ Report Problem</button>
+                )}
+              </div>
+            )}
+            {b.amount>0 && (
+              <div style={{ display:'flex', justifyContent:'space-between', paddingTop:10, borderTop:'1px solid #f5f5f5' }}>
+                <span style={{ fontSize:13, color:'#888' }}>Amount paid</span>
+                <span style={{ fontSize:16, fontWeight:800, color:YD }}>₹{b.amount}</span>
+              </div>
+            )}
+            {b.rating>0 && <p style={{ fontSize:13, color:'#f59e0b', marginTop:6 }}>{'★'.repeat(b.rating)}{'☆'.repeat(5-b.rating)}</p>}
+          </Card>
+        )
+      })}
     </div>
   )
 }

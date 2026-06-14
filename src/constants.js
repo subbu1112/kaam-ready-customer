@@ -16,5 +16,3 @@ export const KA_CITIES = [
   'Kalaburagi', 'Udupi', 'Hassan', 'Mandya',
   'Dharwad', 'Vijayapura', 'Bidar',
 ]
-
-export const PLATFORM_UPI = '9100193118-3@ybl'

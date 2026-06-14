@@ -46,7 +46,7 @@ export default function OTPScreen({ setScreen, showToast }) {
   return (
     <div style={{ height:'100vh', background:'#fff', maxWidth:430, margin:'0 auto', width:'100%', display:'flex', flexDirection:'column' }}>
       <div style={{ background:'#F5C000', padding:'16px 24px 20px' }}>
-        <button onClick={() => setScreen('login')} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer' }}>←</button>
+        <button type="button" aria-label="Back to login" onClick={() => setScreen('login')} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer' }}>←</button>
         <h2 style={{ fontWeight:800, fontSize:20, marginTop:8 }}>Enter OTP</h2>
         <p style={{ fontSize:13, color:'rgba(0,0,0,.6)' }}>6-digit code sent to your number</p>
       </div>

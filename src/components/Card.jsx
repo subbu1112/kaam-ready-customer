@@ -1,15 +1,7 @@
-export default function Card({ children, style = {}, onClick, className = '' }) {
+export default function Card({ children, style = {} }) {
   return (
-    <div onClick={onClick} className={className}
-      style={{
-        background: '#fff',
-        borderRadius: 18,
-        padding: 16,
-        boxShadow: '0 1px 3px rgba(0,0,0,.05), 0 4px 14px rgba(0,0,0,.04)',
-        border: '1px solid #F0F0F2',
-        transition: 'transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s',
-        ...style,
-      }}>
+    <div style={{ background:'#fff', borderRadius:16, padding:16,
+      border:'1px solid #E5E5EA', boxShadow:'0 2px 8px rgba(0,0,0,.04)', ...style }}>
       {children}
     </div>
   )

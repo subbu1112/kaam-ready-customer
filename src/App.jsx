@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
+import OneSignal from 'react-onesignal'
 import { sb } from './lib/supabase'
-import LandingScreen  from './screens/LandingScreen'
 import LoginScreen    from './screens/LoginScreen'
 import OTPScreen      from './screens/OTPScreen'
 import CityScreen     from './screens/CityScreen'
@@ -15,7 +15,7 @@ import TermsModal, { termsAccepted, acceptTerms } from './components/TermsModal'
 import { SERVICES } from './constants'
 
 export default function App() {
-  const [screen,   setScreen]   = useState('landing')
+  const [screen,   setScreen]   = useState('login')
   const [tab,      setTab]      = useState('home')
   const [user,     setUser]     = useState(null)
   const [city,     setCity]     = useState(null)
@@ -25,16 +25,14 @@ export default function App() {
   const [showTerms, setShowTerms] = useState(false)
   const [resume,   setResume]   = useState(null)
   const [rebookWorker, setRebookWorker] = useState(null)
-  const [prevTab, setPrevTab] = useState('home')
 
   // Restore an in-progress booking after refresh / returning from a UPI app
   useEffect(() => {
     if (!user?.id) return
     sb.from('bookings').select('*').eq('user_id', user.id)
-      .in('status', ['assigned','priced']).order('created_at', { ascending:false }).limit(3)
+      .in('status', ['assigned','priced']).order('created_at', { ascending:false }).limit(1)
       .then(({ data }) => {
-        // skip scheduled jobs that are still in the future — they're not "active" yet
-        const b = (data||[]).find(x => !(x.is_scheduled && x.scheduled_at && new Date(x.scheduled_at) > new Date(Date.now()+15*60*1000)))
+        const b = data?.[0]
         if (!b) return
         setResume(b)
         setSelSvc(SERVICES.find(x => x.id === b.service_id) || { id:b.service_id, lbl:b.service, ico:'🔧', range:'' })
@@ -43,13 +41,11 @@ export default function App() {
   }, [user?.id])
 
   useEffect(() => {
-    sb.auth.getSession().then(({ data }) => {
-      if (data.session?.user) { setUser(data.session.user); loadProfile(data.session.user.id) }
-    })
-    sb.auth.onAuthStateChange((_e, session) => {
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_e, session) => {
       if (session?.user) { setUser(session.user); loadProfile(session.user.id) }
-      else { setUser(null); setScreen(prev => prev === 'landing' ? 'landing' : 'login') }
+      else { setUser(null); setScreen('login') }
     })
+    return () => subscription.unsubscribe()
   }, [])
 
   async function loadProfile(uid) {
@@ -73,33 +69,21 @@ export default function App() {
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2600) }
 
-  const TAB_ORDER = ['home','search','book','bookings','profile']
-  function switchTab(t) { setPrevTab(tab); setTab(t) }
-  function tabAnimClass(t) {
-    const pi = TAB_ORDER.indexOf(prevTab), ci = TAB_ORDER.indexOf(tab)
-    return ci > pi ? 'kr-screen-anim' : 'kr-screen-anim-left'
-  }
+  const ctx = { user, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast, setScreen, setTab, resume, clearResume: () => setResume(null), rebookWorker, setRebookWorker, clearRebook: () => setRebookWorker(null) }
 
-  const ctx = { user, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast, setScreen, setTab, resume, setResume, clearResume: () => setResume(null), rebookWorker, setRebookWorker, clearRebook: () => setRebookWorker(null) }
-
-  if (screen === 'landing') return <LandingScreen setScreen={setScreen} />
   if (screen === 'login') return <><LoginScreen {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
   if (screen === 'otp')   return <><OTPScreen   {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
   if (screen === 'city')  return <><CityScreen  {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
 
-  // Tab order for direction-aware animation
   return (
-    <div style={{ height:'100dvh', minHeight:'-webkit-fill-available', display:'flex', flexDirection:'column',
+    <div style={{ height:'100vh', display:'flex', flexDirection:'column',
       background:'#F2F2F7', maxWidth:430, margin:'0 auto', overflow:'hidden', position:'relative' }}>
-      {tab === 'home'     && <div key="home"     className={tabAnimClass('home')}     style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}><HomeScreen     {...ctx} setTab={switchTab} /></div>}
-      {tab === 'search'   && <div key="search"   className={tabAnimClass('search')}   style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}><SearchScreen   {...ctx} setTab={switchTab} /></div>}
-      {/* BookScreen always mounted — preserves realtime subscription during tab switches */}
-      <div style={{ display: tab === 'book' ? 'contents' : 'none' }}>
-        <BookScreen {...ctx} setTab={switchTab} />
-      </div>
-      {tab === 'bookings' && <div key="bookings" className={tabAnimClass('bookings')} style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}><BookingsScreen {...ctx} setTab={switchTab} /></div>}
-      {tab === 'profile'  && <div key="profile"  className={tabAnimClass('profile')}  style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}><ProfileScreen  {...ctx} setTab={switchTab} /></div>}
-      <TabBar tab={tab} setTab={switchTab} />
+      {tab === 'home'     && <HomeScreen     {...ctx} setTab={setTab} />}
+      {tab === 'search'   && <SearchScreen   {...ctx} setTab={setTab} />}
+      {tab === 'book'     && <BookScreen     {...ctx} setTab={setTab} />}
+      {tab === 'bookings' && <BookingsScreen {...ctx} setTab={setTab} />}
+      {tab === 'profile'  && <ProfileScreen  {...ctx} setTab={setTab} />}
+      <TabBar tab={tab} setTab={setTab} />
       {showTerms && <TermsModal onAccept={() => { acceptTerms(); setShowTerms(false) }} />}
       {toast && <Toast msg={toast} />}
     </div>
