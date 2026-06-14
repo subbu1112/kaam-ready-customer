@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import OneSignal from 'react-onesignal'
 import { sb } from './lib/supabase'
+import LandingScreen  from './screens/LandingScreen'
 import LoginScreen    from './screens/LoginScreen'
 import OTPScreen      from './screens/OTPScreen'
 import CityScreen     from './screens/CityScreen'
@@ -15,7 +16,7 @@ import TermsModal, { termsAccepted, acceptTerms } from './components/TermsModal'
 import { SERVICES } from './constants'
 
 export default function App() {
-  const [screen,   setScreen]   = useState('login')
+  const [screen,   setScreen]   = useState('landing')
   const [tab,      setTab]      = useState('home')
   const [user,     setUser]     = useState(null)
   const [city,     setCity]     = useState(null)
@@ -41,9 +42,12 @@ export default function App() {
   }, [user?.id])
 
   useEffect(() => {
+    sb.auth.getSession().then(({ data }) => {
+      if (data.session?.user) { setUser(data.session.user); loadProfile(data.session.user.id) }
+    })
     const { data: { subscription } } = sb.auth.onAuthStateChange((_e, session) => {
       if (session?.user) { setUser(session.user); loadProfile(session.user.id) }
-      else { setUser(null); setScreen('login') }
+      else { setUser(null); setScreen(prev => prev === 'landing' ? 'landing' : 'login') }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -53,7 +57,6 @@ export default function App() {
     if (data?.city) { setCity(data.city); setScreen('main') }
     else setScreen('city')
     if (!termsAccepted()) setShowTerms(true)
-    // Tag this user in OneSignal for targeted notifications
     try {
       await OneSignal.sendTags({ user_id: uid })
       await OneSignal.setExternalUserId(uid)
@@ -71,9 +74,10 @@ export default function App() {
 
   const ctx = { user, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast, setScreen, setTab, resume, clearResume: () => setResume(null), rebookWorker, setRebookWorker, clearRebook: () => setRebookWorker(null) }
 
-  if (screen === 'login') return <><LoginScreen {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
-  if (screen === 'otp')   return <><OTPScreen   {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
-  if (screen === 'city')  return <><CityScreen  {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
+  if (screen === 'landing') return <LandingScreen setScreen={setScreen} />
+  if (screen === 'login')   return <><LoginScreen {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
+  if (screen === 'otp')     return <><OTPScreen   {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
+  if (screen === 'city')    return <><CityScreen  {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
 
   return (
     <div style={{ height:'100vh', display:'flex', flexDirection:'column',
