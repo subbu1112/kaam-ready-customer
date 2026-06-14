@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { sb } from './lib/supabase'
 import TabBar  from './components/TabBar'
+import NotificationBell from './components/NotificationBell'
 import Toast   from './components/Toast'
 import TermsModal, { termsAccepted, acceptTerms } from './components/TermsModal'
 import { SERVICES } from './constants'
@@ -127,6 +128,13 @@ export default function App() {
           {overlay?.startsWith('legal-') && (
             <div style={{ position:'absolute', inset:0, zIndex:100, display:'flex', flexDirection:'column', background:'#F2F2F7' }}>
               <LegalScreen section={legalSection} onBack={() => setOverlay(null)} />
+            </div>
+          )}
+
+          {/* Notification bell — floats top-right, only on main tabs */}
+          {!overlay && (
+            <div style={{ position:'absolute', top:8, right:12, zIndex:90 }}>
+              <NotificationBell user={user} />
             </div>
           )}
 

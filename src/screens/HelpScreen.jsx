@@ -82,7 +82,7 @@ export default function HelpScreen({ user, onBack, showToast }) {
           <div style={{ fontSize: 52, marginBottom: 12 }}>✅</div>
           <p style={{ fontWeight: 800, fontSize: 20, color: Y, marginBottom: 8 }}>Ticket Raised!</p>
           <p style={{ fontSize: 13, color: '#aaa', lineHeight: 1.6 }}>Our support team will review your issue and reach out within 4 hours on your registered mobile number.</p>
-          <p style={{ fontSize: 12, color: '#555', marginTop: 12 }}>For urgent issues, call <strong style={{ color: Y }}>1800-KR-HELP</strong></p>
+          <p style={{ fontSize: 12, color: '#555', marginTop: 12 }}>For urgent issues, call <strong style={{ color: Y }}>6362869636</strong></p>
         </div>
         <div style={{ background: '#fff', borderRadius: 16, padding: 16 }}>
           <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Your submitted details:</p>
@@ -153,8 +153,8 @@ export default function HelpScreen({ user, onBack, showToast }) {
         <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden' }}>
           {[
             { ico: '🎫', label: 'Raise a Support Ticket', sub: 'Report a problem, we respond within 4 hours', action: () => setView('ticket'), highlight: true },
-            { ico: '📞', label: 'Call Us (Toll Free)', sub: '1800-KR-HELP · Mon–Sun 8 AM–10 PM', action: () => window.location.href = 'tel:18005747435' },
-            { ico: '💬', label: 'WhatsApp Support', sub: 'Chat with our team on WhatsApp', action: () => window.open('https://wa.me/918012345678?text=Hi+Kaam+Ready+Support', '_blank') },
+            { ico: '📞', label: 'Call Support', sub: '6362869636 · Mon–Sun 8 AM–10 PM', action: () => window.location.href = 'tel:6362869636' },
+            { ico: '💬', label: 'WhatsApp Support', sub: 'Chat with our team on WhatsApp', action: () => window.open('https://wa.me/916362869636?text=Hi+Kaam+Ready+Support', '_blank') },
             { ico: '📧', label: 'Email Support', sub: 'support@kaamready.in', action: () => window.location.href = 'mailto:support@kaamready.in' },
           ].map(({ ico, label, sub, action, highlight }) => (
             <button key={label} onClick={action}
@@ -181,9 +181,9 @@ export default function HelpScreen({ user, onBack, showToast }) {
         <div style={{ background: '#FEE2E2', border: '1.5px solid #FCA5A5', borderRadius: 14, padding: 16, textAlign: 'center' }}>
           <p style={{ fontSize: 14, fontWeight: 800, color: '#991B1B', marginBottom: 4 }}>⚠️ Urgent Safety Issue?</p>
           <p style={{ fontSize: 12, color: '#555', marginBottom: 12 }}>If you feel unsafe or there is an emergency, call us immediately.</p>
-          <a href="tel:18005747435"
+          <a href="tel:6362869636"
             style={{ display: 'inline-block', background: '#dc2626', color: '#fff', borderRadius: 10, padding: '10px 24px', fontWeight: 800, fontSize: 14, textDecoration: 'none' }}>
-            📞 Call Now (Toll Free)
+            📞 Call Now
           </a>
         </div>
 

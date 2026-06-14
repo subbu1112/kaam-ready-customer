@@ -4,11 +4,12 @@ import { sb } from '../lib/supabase'
 const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', BK='#1C1C1E'
 
 const REPORT_TYPES = [
-  { id:'worker_misconduct',  ico:'😡', label:'Worker Misconduct',    desc:'Rude behaviour, threats, harassment' },
-  { id:'fraud',              ico:'🚨', label:'Fraud / Scam',         desc:'Overcharging, fake services, theft' },
-  { id:'poor_service',       ico:'👎', label:'Poor Service Quality',  desc:'Incomplete or substandard work' },
-  { id:'payment_issue',      ico:'💸', label:'Payment Issue',         desc:'Wrong amount, payment not accepted' },
-  { id:'safety_concern',     ico:'⚠️', label:'Safety Concern',        desc:'Feeling unsafe, property damage' },
+  { id:'worker_complaint',   ico:'😡', label:'Worker Complaint',     desc:'Rude behaviour, threats, harassment' },
+  { id:'customer_complaint', ico:'🗣️', label:'Customer Issue',       desc:'Issue on your side as a customer' },
+  { id:'payment_issue',      ico:'💸', label:'Payment Issue',         desc:'Wrong amount, payment not verified, extra charges' },
+  { id:'refund_request',     ico:'💰', label:'Refund Request',        desc:'Job cancelled, service not delivered' },
+  { id:'service_quality',    ico:'👎', label:'Service Quality',       desc:'Incomplete or substandard work done' },
+  { id:'app_bug',            ico:'🐛', label:'App Bug / Tech Issue',  desc:'App crash, feature not working' },
   { id:'other',              ico:'📝', label:'Other Issue',           desc:'Something else not listed above' },
 ]
 

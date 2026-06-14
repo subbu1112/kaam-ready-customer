@@ -6,19 +6,26 @@ import MapView from '../components/MapView'
 import { serviceFloor } from '../constants'
 
 const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', GREEN='#22c55e'
+const KR_UPI = '9100193118@ybl'
+const KR_NAME = 'Kaam Ready'
 
-// Flow: 0 describe · 1 searching · 2 worker working · 3 approve price & pay · 4 no workers · 5 waiting confirm · 6 done
+// Flow: 0 describe · 1 searching · 2 worker working · 3 worker sent price → pay
+// 4 no workers · 5 waiting admin verification · 6 done · 7 scheduled · 8 rejected
 export default function BookScreen({ user, city, selSvc, setTab, showToast, loadBookings, resume, clearResume, rebookWorker, clearRebook }) {
-  const [step,    setStep]    = useState(0)
-  const [desc,    setDesc]    = useState('')
-  const [addr,    setAddr]    = useState('')
-  const [when,    setWhen]    = useState('now')   // 'now' | 'later'
-  const [schedAt, setSchedAt] = useState('')
-  const [worker,  setWorker]  = useState(null)
-  const [booking, setBooking] = useState(null)
-  const [rating,  setRating]  = useState(0)
-  const [paying,  setPaying]  = useState(false)
+  const [step,      setStep]      = useState(0)
+  const [desc,      setDesc]      = useState('')
+  const [addr,      setAddr]      = useState('')
+  const [when,      setWhen]      = useState('now')
+  const [schedAt,   setSchedAt]   = useState('')
+  const [worker,    setWorker]    = useState(null)
+  const [booking,   setBooking]   = useState(null)
+  const [rating,    setRating]    = useState(0)
+  const [paying,    setPaying]    = useState(false)
+  const [proofFile, setProofFile] = useState(null)
+  const [proofPrev, setProofPrev] = useState(null)
+  const [uploading, setUploading] = useState(false)
   const timer = useRef(null), chanRef = useRef(null), workerRef = useRef(null)
+  const proofInput = useRef(null)
 
   useEffect(() => () => { clearTimeout(timer.current); if (chanRef.current) chanRef.current.unsubscribe() }, [])
 
@@ -31,26 +38,28 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
         if (b.status==='assigned' && b.worker_id && !workerRef.current) {
           clearTimeout(timer.current)
           const { data: wData } = await sb.from('workers').select('*').eq('id', b.worker_id).single()
-          const w = wData || b.worker || {}
-          workerRef.current = w
-          setWorker(w); setStep(2)
-          showToast((w.name||'A worker')+' is on the way! 🎉')
+          const w = wData || {}
+          workerRef.current = w; setWorker(w); setStep(2)
+          showToast((w.name||'A worker')+' accepted your booking! 🎉')
         }
-        if (b.status==='priced' && b.amount && b.payment_status!=='claimed') {
+        if (b.status==='priced' && b.amount && b.payment_status!=='pending_verification' && b.payment_status!=='verified') {
           setStep(3)
-          showToast('Work done — review and pay ₹'+b.amount)
+          showToast('Worker sent the price — ₹'+b.amount+'. Review and pay!')
         }
-        if (b.status==='completed' && b.payment_status==='paid') {
+        if (b.payment_status==='verified') {
           setStep(6)
-          showToast('Payment confirmed by worker ✓')
+          showToast('Payment approved by admin ✓ Job complete!')
           await loadBookings()
+        }
+        if (b.payment_status==='rejected') {
+          setStep(8)
+          showToast('Payment proof rejected — please re-upload')
         }
       }).subscribe()
     chanRef.current = ch
     return ch
   }
 
-  // Resume an in-progress booking (after refresh or returning from a UPI app)
   useEffect(() => {
     if (!resume?.id) return
     let cancelled = false
@@ -61,9 +70,11 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
         if (cancelled) return
         if (w) { workerRef.current = w; setWorker(w) }
       }
-      if (resume.payment_status==='claimed') setStep(5)
-      else if (resume.status==='priced')     setStep(3)
-      else                                   setStep(2)
+      if (resume.payment_status==='verified')              setStep(6)
+      else if (resume.payment_status==='rejected')         setStep(8)
+      else if (resume.payment_status==='pending_verification') setStep(5)
+      else if (resume.status==='priced')                   setStep(3)
+      else                                                 setStep(2)
       subscribeBooking(resume.id)
       clearResume && clearResume()
     })()
@@ -103,54 +114,65 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
       showToast('Booking scheduled ✓')
       await loadBookings()
       clearRebook && clearRebook()
-      setStep(7)  // scheduled confirmation
-      subscribeBooking(data.id)
-      return
+      setStep(7); subscribeBooking(data.id); return
     }
     subscribeBooking(data.id)
     clearRebook && clearRebook()
-    // 3-minute timeout — no fake workers, just show "no workers available"
     timer.current = setTimeout(async () => {
       if (chanRef.current) { chanRef.current.unsubscribe(); chanRef.current = null }
       await sb.from('bookings').update({ status:'cancelled' }).eq('id', data.id)
-      setStep(4) // no-workers state
+      setStep(4)
     }, 180000)
   }
 
-  function upiLink() {
+  function krUpiLink() {
     const amt = booking?.amount || 0
-    const pa  = worker?.upi_id || ''
-    const pn  = encodeURIComponent(worker?.name || 'Kaam Ready Worker')
-    const tn  = encodeURIComponent('Kaam Ready - '+(selSvc?.lbl||'Service'))
-    return `upi://pay?pa=${encodeURIComponent(pa)}&pn=${pn}&am=${amt}&cu=INR&tn=${tn}`
+    const tn  = encodeURIComponent('KaamReady-' + (booking?.id||'').slice(0,8))
+    return `upi://pay?pa=${encodeURIComponent(KR_UPI)}&pn=${encodeURIComponent(KR_NAME)}&am=${amt}&cu=INR&tn=${tn}`
   }
 
-  async function openUpiApp() {
-    if (!worker?.upi_id) {
-      showToast('Ask the worker for their UPI ID, or pay to their phone number on your UPI app')
-      return
-    }
-    window.location.href = upiLink()
+  function pickProof(e) {
+    const f = e.target.files[0]
+    if (!f) return
+    setProofFile(f)
+    setProofPrev(URL.createObjectURL(f))
   }
 
-  async function markPaid() {
-    if (!booking?.id || paying) return
-    setPaying(true)
+  async function submitPaymentProof() {
+    if (!proofFile) { showToast('Please upload payment screenshot first'); return }
+    if (!booking?.id) return
+    setUploading(true)
+    const path = `payment-proofs/${booking.id}-${Date.now()}.jpg`
+    const { error: upErr } = await sb.storage.from('kyc').upload(path, proofFile, { upsert:true })
+    if (upErr) { showToast('Upload failed — try again'); setUploading(false); return }
+    const { data: { publicUrl } } = sb.storage.from('kyc').getPublicUrl(path)
     const { error } = await sb.from('bookings').update({
-      payment_status:'claimed', payment_method:'upi',
-      customer_paid_at:new Date().toISOString(), rating: rating||null,
+      payment_status: 'pending_verification',
+      payment_proof_url: publicUrl,
+      payment_method: 'upi',
+      customer_paid_at: new Date().toISOString(),
+      rating: rating || null,
     }).eq('id', booking.id)
-    setPaying(false)
-    if (error) { showToast(error.message); return }
+    setUploading(false)
+    if (error) { showToast('Error: '+error.message); return }
     setStep(5)
-    showToast('Waiting for the worker to confirm... ⏳')
+    showToast('Payment proof submitted! Admin will verify shortly ⏳')
+  }
+
+  async function resubmitProof() {
+    // Reset to payment step to re-upload
+    setProofFile(null); setProofPrev(null)
+    await sb.from('bookings').update({ payment_status:'priced' }).eq('id', booking?.id).catch(()=>{})
+    setBooking(b => ({ ...b, payment_status:'priced' }))
+    setStep(3)
   }
 
   function resetAll() {
     clearTimeout(timer.current)
     if (chanRef.current) { chanRef.current.unsubscribe(); chanRef.current = null }
     workerRef.current = null
-    setStep(0); setDesc(''); setAddr(''); setWorker(null); setBooking(null); setRating(0)
+    setStep(0); setDesc(''); setAddr(''); setWorker(null); setBooking(null)
+    setRating(0); setProofFile(null); setProofPrev(null)
   }
 
   function cancel() { resetAll(); setTab('home') }
@@ -160,203 +182,229 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
 
   return (
     <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+      {/* Header */}
       <div style={{ background:Y, borderRadius:16, padding:'14px 16px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div>
-            <p style={{ fontSize:14, fontWeight:700 }}>{selSvc?.ico} {selSvc?.lbl} Request</p>
-            <p style={{ fontSize:11, color:'rgba(0,0,0,.6)' }}>📍 {city}</p>
+            <p style={{ fontWeight:800, fontSize:16 }}>{selSvc?.lbl || 'Book a Service'}</p>
+            <p style={{ fontSize:12, marginTop:2, opacity:.7 }}>
+              {['Finding workers','Worker working','Price received','Done'].filter((_,i)=>i<dots+1).join(' → ')}
+            </p>
           </div>
           {step<3 && <button onClick={cancel} style={{ background:'rgba(0,0,0,.12)', border:'none', borderRadius:8, padding:'6px 12px', cursor:'pointer', fontSize:12, fontWeight:700 }}>✕ Cancel</button>}
         </div>
-        <div style={{ display:'flex', gap:6, justifyContent:'center', marginTop:10 }}>
-          {['Describe','Searching','Working','Pay'].map((_,i) => (
-            <div key={i} style={{ height:8, borderRadius:4, transition:'.2s', background:dots>=i?'#000':'rgba(0,0,0,.2)', width:dots===i?22:8 }} />
+        <div style={{ display:'flex', gap:4, marginTop:10 }}>
+          {[0,1,2].map(i => (
+            <div key={i} style={{ flex:1, height:3, borderRadius:4, background:dots>i?'#000':'rgba(0,0,0,.2)' }} />
           ))}
         </div>
       </div>
 
+      {/* STEP 0 — Describe job */}
       {step===0 && <>
         <Card>
-          <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:.6, marginBottom:12 }}>Describe the problem</p>
-          <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="e.g. Fan not working..." rows={3}
-            style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:13, fontSize:14, outline:'none', fontFamily:'inherit', resize:'none', marginBottom:12 }} />
-          <p style={{ fontSize:12, fontWeight:600, color:'#555', marginBottom:6 }}>Address</p>
-          <input value={addr} onChange={e => setAddr(e.target.value)} placeholder={'MG Road, '+city}
-            style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:13, fontSize:14, outline:'none', fontFamily:'inherit' }} />
-        </Card>
-        {rebookWorker && (
-          <Card style={{ border:'2px solid '+Y, background:YL }}>
-            <p style={{ fontSize:13, fontWeight:700 }}>🔁 Rebooking {rebookWorker.name}</p>
-            <p style={{ fontSize:11, color:'#888', marginTop:2 }}>This worker gets your request first</p>
-          </Card>
-        )}
-        <Card>
-          <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:.6, marginBottom:10 }}>When?</p>
-          <div style={{ display:'flex', gap:8, marginBottom: when==='later' ? 12 : 0 }}>
-            {[['now','⚡ Now'],['later','📅 Schedule']].map(([v,lb]) => (
-              <button key={v} onClick={() => setWhen(v)}
-                style={{ flex:1, background: when===v ? Y : '#f5f5f5', border:'none', borderRadius:10, padding:11, fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>{lb}</button>
+          <p style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', marginBottom:8 }}>Job Description</p>
+          <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={3} placeholder="Describe what needs to be done..."
+            style={{ width:'100%', border:'1.5px solid #eee', borderRadius:10, padding:10, fontSize:14, fontFamily:'inherit', resize:'none', outline:'none', boxSizing:'border-box' }} />
+          <p style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', marginTop:10, marginBottom:6 }}>Address</p>
+          <input value={addr} onChange={e=>setAddr(e.target.value)} placeholder="Flat / Building / Landmark..."
+            style={{ width:'100%', border:'1.5px solid #eee', borderRadius:10, padding:'10px 12px', fontSize:14, fontFamily:'inherit', outline:'none', boxSizing:'border-box' }} />
+          <p style={{ fontSize:11, color:'#bbb', marginTop:6 }}>Min charge: ₹{floor}</p>
+          <p style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', marginTop:12, marginBottom:8 }}>When</p>
+          <div style={{ display:'flex', gap:8 }}>
+            {['now','later'].map(w => (
+              <button key={w} onClick={()=>setWhen(w)} style={{ flex:1, padding:10, borderRadius:10, border:'2px solid '+(when===w?YD:'#eee'), background:when===w?YL:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>{w==='now'?'⚡ Right Now':'📅 Schedule'}</button>
             ))}
           </div>
           {when==='later' && (
-            <input type="datetime-local" value={schedAt} onChange={e => setSchedAt(e.target.value)}
-              min={new Date(Date.now()+30*60*1000).toISOString().slice(0,16)}
-              style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:12, fontSize:14, outline:'none', fontFamily:'inherit' }} />
+            <input type="datetime-local" value={schedAt} onChange={e=>setSchedAt(e.target.value)} min={new Date(Date.now()+30*60000).toISOString().slice(0,16)}
+              style={{ width:'100%', border:'1.5px solid #eee', borderRadius:10, padding:'10px 12px', fontSize:14, fontFamily:'inherit', outline:'none', marginTop:10, boxSizing:'border-box' }} />
           )}
         </Card>
-        <Card>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <span style={{ fontSize:14, color:'#555' }}>Estimated cost</span>
-            <span style={{ fontSize:17, fontWeight:800 }}>{selSvc?.range}</span>
-          </div>
-          <p style={{ fontSize:11, color:'#bbb', marginTop:4 }}>Final price set by the worker after the job — you approve it before paying. UPI payment only, no cash.</p>
-        </Card>
-        <Btn label={when==='later' ? 'Schedule Booking 📅' : 'Find Workers Near Me 🔍'} onClick={findWorkers} />
+        <Btn label="Find a Worker 🔍" onClick={findWorkers} disabled={!desc.trim()} />
+        <p style={{ fontSize:11, color:'#aaa', textAlign:'center' }}>Final price is set by the worker after completing the job. You review it before paying.</p>
       </>}
 
+      {/* STEP 1 — Searching */}
       {step===1 && (
         <Card style={{ textAlign:'center', padding:40 }}>
-          <div style={{ fontSize:52, marginBottom:16, animation:'float 1s ease-in-out infinite' }}>🔍</div>
+          <div style={{ width:56, height:56, border:'4px solid '+YL, borderTop:'4px solid '+Y, borderRadius:'50%', animation:'spin .8s linear infinite', margin:'0 auto 16px' }} />
           <p style={{ fontWeight:800, fontSize:18 }}>Finding workers nearby...</p>
-          <p style={{ fontSize:13, color:'#888', marginTop:6 }}>Checking availability in {city}</p>
-          <div style={{ background:'#f0f0f0', borderRadius:20, height:6, overflow:'hidden', marginTop:20 }}>
-            <div style={{ background:Y, height:'100%', borderRadius:20, width:'65%' }} />
-          </div>
+          <p style={{ fontSize:13, color:'#888', marginTop:6 }}>Looking for {selSvc?.lbl} experts in {city}</p>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </Card>
       )}
 
+      {/* STEP 2 — Worker accepted, doing the job */}
       {step===2 && worker && <>
-        <MapView
-          workerLat={worker.lat} workerLng={worker.lng}
-          customerLat={booking?.address_lat} customerLng={booking?.address_lng}
-          style={{ borderRadius:16, height:180, overflow:'hidden', marginBottom:0 }}
-        />
-        <Card style={{ border:'2px solid '+Y }}>
-          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12 }}>
-            <p style={{ fontWeight:800, fontSize:15 }}>✅ Worker Assigned!</p>
-            <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:8 }}>On the way</span>
-          </div>
-          <div style={{ display:'flex', alignItems:'center', gap:12, paddingBottom:12, borderBottom:'1px solid #f0f0f0', marginBottom:12 }}>
-            {worker.avatar_url
-              ? <img src={worker.avatar_url} alt="" style={{ width:60, height:60, borderRadius:16, objectFit:'cover', flexShrink:0 }} />
-              : <div style={{ width:60, height:60, borderRadius:16, background:YL, display:'flex', alignItems:'center', justifyContent:'center', fontSize:30, flexShrink:0 }}>{worker.ico||'👷'}</div>}
+        <Card>
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14 }}>
+            <div style={{ width:50, height:50, borderRadius:'50%', background:YL, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:800 }}>
+              {worker.name?.[0]?.toUpperCase()||'W'}
+            </div>
             <div style={{ flex:1 }}>
-              <p style={{ fontSize:15, fontWeight:800 }}>{worker.name}</p>
-              <p style={{ fontSize:12, color:'#888', margin:'2px 0' }}>{worker.skill}</p>
-              <div style={{ display:'flex', gap:6, marginTop:4 }}>
-                <span style={{ background:'#FFF8D6', color:'#B8900A', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:6 }}>★ {worker.rating||'5.0'}</span>
-                <span style={{ background:'#f0f0f0', color:'#555', fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:6 }}>{worker.total_jobs||worker.jobs||0} jobs</span>
-                {(worker.aadhar_verified || worker.aadhaar_verified)
-                  ? <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:6 }}>✓ Verified</span>
-                  : <span style={{ background:'#FEF3C7', color:'#92400E', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:6 }}>KYC pending</span>}
-              </div>
+              <p style={{ fontWeight:800, fontSize:16 }}>{worker.name || 'Worker'}</p>
+              <p style={{ fontSize:12, color:'#888' }}>{worker.skill||selSvc?.lbl} · ⭐ {worker.rating||5.0}</p>
             </div>
-            <a href={'tel:+91'+worker.phone} style={{ width:40, height:40, borderRadius:12, background:GREEN, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, textDecoration:'none', flexShrink:0 }}>📞</a>
+            <a href={`tel:${worker.phone}`} style={{ background:Y, border:'none', borderRadius:10, padding:'8px 14px', fontWeight:700, fontSize:13, cursor:'pointer', textDecoration:'none', color:'#1C1C1E' }}>📞 Call</a>
           </div>
-          <div style={{ background:'#f9f9f9', borderRadius:12, padding:'12px 14px' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontSize:13, color:'#555' }}>Starting price</span>
-              <span style={{ fontSize:16, fontWeight:800 }}>from ₹{floor}</span>
-            </div>
-            <p style={{ fontSize:11, color:'#aaa', marginTop:4 }}>The worker will send the final price when the work is done. You approve it before paying via UPI.</p>
+          <div style={{ background:YL, borderRadius:10, padding:'10px 12px' }}>
+            <p style={{ fontSize:12, fontWeight:700, color:YD }}>🔧 Worker is on the job</p>
+            <p style={{ fontSize:12, color:'#888', marginTop:3 }}>The worker will send you the final price after completing the work.</p>
           </div>
         </Card>
+        {booking?.address_lat && booking?.address_lng && (
+          <MapView lat={booking.address_lat} lng={booking.address_lng} workerLat={worker?.current_lat} workerLng={worker?.current_lng} label="Job Location" />
+        )}
       </>}
 
+      {/* STEP 3 — Worker sent price → Customer pays to KaamReady */}
       {step===3 && <>
-        <Card style={{ textAlign:'center', padding:24, animation:'popIn .4s ease' }}>
-          <div style={{ fontSize:52, marginBottom:10 }}>🧾</div>
-          <p style={{ fontWeight:800, fontSize:20 }}>Work Completed!</p>
-          <p style={{ fontSize:13, color:'#888', marginTop:4 }}>{worker?.name} has sent the final price</p>
-          <hr style={{ border:'none', borderTop:'1px solid #f0f0f0', margin:'14px 0' }} />
+        <Card style={{ textAlign:'center', padding:20 }}>
+          <div style={{ fontSize:48, marginBottom:8 }}>🧾</div>
+          <p style={{ fontWeight:800, fontSize:20 }}>Price Received!</p>
+          <p style={{ fontSize:13, color:'#888', marginTop:4 }}>{worker?.name || 'Your worker'} has completed the work</p>
+
           {(booking?.photo_before_url || booking?.photo_after_url) && (
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, margin:'12px 0' }}>
               {[['Before', booking.photo_before_url],['After', booking.photo_after_url]].map(([lb,u]) => u && (
                 <div key={lb}>
-                  <p style={{ fontSize:10, fontWeight:700, color:'#aaa', marginBottom:4, textAlign:'left' }}>{lb.toUpperCase()}</p>
-                  <img src={u} alt={lb} style={{ width:'100%', height:110, objectFit:'cover', borderRadius:10 }} />
+                  <p style={{ fontSize:10, fontWeight:700, color:'#aaa', marginBottom:4, textAlign:'left' }}>{lb}</p>
+                  <img src={u} alt={lb} style={{ width:'100%', height:100, objectFit:'cover', borderRadius:10 }} />
                 </div>
               ))}
             </div>
           )}
+
           {booking?.price_note && (
-            <div style={{ background:'#FFF8D6', borderRadius:10, padding:'10px 12px', marginBottom:12, textAlign:'left' }}>
+            <div style={{ background:YL, borderRadius:10, padding:'10px 12px', margin:'10px 0', textAlign:'left' }}>
               <p style={{ fontSize:11, fontWeight:700, color:YD, marginBottom:2 }}>WORKER'S NOTE</p>
               <p style={{ fontSize:13, color:'#555' }}>{booking.price_note}</p>
             </div>
           )}
-          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-            <span style={{ fontSize:13, color:'#888' }}>Minimum charge</span>
-            <span style={{ fontSize:13, fontWeight:600, color:'#888' }}>₹{floor}</span>
+
+          <div style={{ display:'flex', justifyContent:'space-between', padding:'10px 0', borderTop:'1px solid #f0f0f0', marginTop:8 }}>
+            <span style={{ fontSize:13, color:'#888' }}>Min. charge</span>
+            <span style={{ fontSize:13, color:'#888' }}>₹{floor}</span>
           </div>
-          <div style={{ display:'flex', justifyContent:'space-between', paddingTop:10, borderTop:'2px solid #f0f0f0' }}>
-            <span style={{ fontSize:16, fontWeight:800 }}>Total to pay</span>
-            <span style={{ fontSize:26, fontWeight:800, color:YD }}>₹{booking?.amount}</span>
+          <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderTop:'2px solid #f0f0f0' }}>
+            <span style={{ fontSize:18, fontWeight:800 }}>Total</span>
+            <span style={{ fontSize:28, fontWeight:900, color:YD }}>₹{booking?.amount}</span>
           </div>
         </Card>
+
+        {/* Rate */}
         <Card>
-          <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:.6, marginBottom:12 }}>Rate your experience</p>
-          <div style={{ display:'flex', gap:6, justifyContent:'center', margin:'10px 0 14px' }}>
+          <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', marginBottom:10 }}>Rate your experience (optional)</p>
+          <div style={{ display:'flex', gap:6, justifyContent:'center' }}>
             {[1,2,3,4,5].map(n => (
-              <span key={n} onClick={() => setRating(n)} style={{ fontSize:34, cursor:'pointer', filter:rating>=n?'none':'grayscale(1) opacity(.4)' }}>⭐</span>
+              <span key={n} onClick={()=>setRating(n)} style={{ fontSize:32, cursor:'pointer', filter:rating>=n?'none':'grayscale(1) opacity(.3)' }}>⭐</span>
             ))}
           </div>
-          <button onClick={openUpiApp}
-            style={{ width:'100%', background:Y, border:'none', borderRadius:12, padding:15, fontWeight:800, fontSize:15, cursor:'pointer', fontFamily:'inherit' }}>
-            Pay ₹{booking?.amount} via UPI 📲
-          </button>
-          <p style={{ fontSize:11, color:'#aaa', textAlign:'center', margin:'8px 0' }}>
-            Opens GPay / PhonePe / Paytm with the amount pre-filled
-            {worker?.upi_id ? <> · paying to <b>{worker.upi_id}</b></> : null}
-          </p>
-          <button onClick={markPaid} disabled={paying}
-            style={{ width:'100%', background:'#1C1C1E', color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit', opacity:paying?.6:1 }}>
-            {paying ? 'Saving...' : "I've Paid ✓"}
-          </button>
-          <p style={{ fontSize:11, color:'#bbb', textAlign:'center', marginTop:8 }}>UPI only — cash payments are not accepted</p>
+        </Card>
+
+        {/* Payment to KaamReady */}
+        <Card>
+          <div style={{ background:'#0f172a', borderRadius:14, padding:'16px', marginBottom:14, textAlign:'center' }}>
+            <p style={{ fontSize:11, color:'#64748b', fontWeight:700, textTransform:'uppercase', marginBottom:8, letterSpacing:1 }}>Pay to Kaam Ready</p>
+            <p style={{ fontSize:22, fontWeight:900, color:Y, letterSpacing:1 }}>{KR_UPI}</p>
+            <p style={{ fontSize:12, color:'#475569', marginTop:4 }}>Official KaamReady payment account</p>
+            <div style={{ display:'flex', gap:8, marginTop:14, justifyContent:'center' }}>
+              <a href={krUpiLink()} style={{ flex:1, background:Y, border:'none', borderRadius:10, padding:'12px 0', fontWeight:800, fontSize:14, cursor:'pointer', textDecoration:'none', color:'#1C1C1E', textAlign:'center', display:'block' }}>
+                📲 Pay ₹{booking?.amount} via UPI
+              </a>
+            </div>
+            <p style={{ fontSize:11, color:'#475569', marginTop:8 }}>Opens GPay / PhonePe / Paytm · UPI ID: {KR_UPI}</p>
+          </div>
+
+          <div style={{ borderTop:'1px solid #f0f0f0', paddingTop:14 }}>
+            <p style={{ fontSize:13, fontWeight:700, color:'#1C1C1E', marginBottom:4 }}>📸 Upload Payment Screenshot</p>
+            <p style={{ fontSize:12, color:'#888', marginBottom:12 }}>After paying, take a screenshot from your UPI app and upload it here for admin verification.</p>
+
+            <input ref={proofInput} type="file" accept="image/*" style={{ display:'none' }} onChange={pickProof} />
+
+            {proofPrev ? (
+              <div style={{ position:'relative', marginBottom:12 }}>
+                <img src={proofPrev} alt="proof" style={{ width:'100%', borderRadius:10, maxHeight:180, objectFit:'cover' }} />
+                <button onClick={()=>{ setProofFile(null); setProofPrev(null) }}
+                  style={{ position:'absolute', top:6, right:6, background:'rgba(0,0,0,.6)', border:'none', borderRadius:20, width:26, height:26, color:'#fff', cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+              </div>
+            ) : (
+              <button onClick={()=>proofInput.current?.click()} style={{ width:'100%', border:'2px dashed #e2e8f0', borderRadius:12, padding:20, background:'#f8fafc', cursor:'pointer', fontFamily:'inherit', color:'#64748b', fontSize:13, fontWeight:600, marginBottom:12 }}>
+                📁 Tap to Upload Screenshot
+              </button>
+            )}
+
+            <button onClick={submitPaymentProof} disabled={!proofFile || uploading}
+              style={{ width:'100%', background: proofFile ? '#16a34a' : '#e2e8f0', border:'none', borderRadius:12, padding:14, color: proofFile ? '#fff' : '#94a3b8', fontWeight:800, fontSize:15, cursor: proofFile ? 'pointer' : 'not-allowed', fontFamily:'inherit', opacity: uploading ? 0.6 : 1 }}>
+              {uploading ? 'Uploading...' : proofFile ? '✅ Submit Payment Proof' : 'Upload screenshot to continue'}
+            </button>
+          </div>
         </Card>
       </>}
 
+      {/* STEP 4 — No workers */}
       {step===4 && (
         <Card style={{ textAlign:'center', padding:32 }}>
           <div style={{ fontSize:52, marginBottom:12 }}>😔</div>
           <p style={{ fontWeight:800, fontSize:18 }}>No Workers Available</p>
-          <p style={{ fontSize:13, color:'#888', margin:'8px 0 20px' }}>No workers in {city} accepted this job right now. Try again in a few minutes.</p>
+          <p style={{ fontSize:13, color:'#888', margin:'8px 0 20px' }}>No {selSvc?.lbl} workers in {city} right now. Try again in a few minutes.</p>
           <Btn label="Try Again" onClick={() => { setStep(0); setWorker(null); workerRef.current=null }} />
-          <button onClick={() => setTab('home')}
-            style={{ display:'block', width:'100%', margin:'10px 0 0', background:'none', border:'none', color:'#aaa', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
-            Go Home
-          </button>
+          <button onClick={()=>setTab('home')} style={{ display:'block', width:'100%', margin:'10px 0 0', background:'none', border:'none', color:'#aaa', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>Go Home</button>
         </Card>
       )}
 
+      {/* STEP 5 — Waiting for admin verification */}
       {step===5 && (
         <Card style={{ textAlign:'center', padding:36 }}>
-          <div style={{ fontSize:52, marginBottom:14, animation:'float 1.5s ease-in-out infinite' }}>⏳</div>
-          <p style={{ fontWeight:800, fontSize:18 }}>Waiting for confirmation</p>
-          <p style={{ fontSize:13, color:'#888', margin:'8px 0 4px' }}>{worker?.name} is confirming your ₹{booking?.amount} UPI payment.</p>
-          <p style={{ fontSize:12, color:'#bbb' }}>This usually takes a few seconds.</p>
+          <div style={{ fontSize:52, marginBottom:14 }}>🔍</div>
+          <p style={{ fontWeight:800, fontSize:18 }}>Verifying Payment</p>
+          <p style={{ fontSize:13, color:'#888', margin:'8px 0 4px' }}>Our admin team is reviewing your payment screenshot.</p>
+          <p style={{ fontSize:12, color:'#bbb', marginBottom:20 }}>This usually takes under 30 minutes during business hours.</p>
+          <div style={{ background:YL, borderRadius:12, padding:'12px 16px', textAlign:'left' }}>
+            <p style={{ fontSize:12, fontWeight:700, color:YD, marginBottom:4 }}>What happens next?</p>
+            <p style={{ fontSize:12, color:'#666', lineHeight:1.7 }}>
+              ✅ Admin approves → job marked complete<br/>
+              ❌ If rejected → you'll get a notification to re-upload
+            </p>
+          </div>
         </Card>
       )}
 
+      {/* STEP 6 — Payment verified, done */}
+      {step===6 && (
+        <Card style={{ textAlign:'center', padding:36 }}>
+          <div style={{ fontSize:60, marginBottom:12 }}>🎉</div>
+          <p style={{ fontWeight:800, fontSize:22 }}>All Done!</p>
+          <p style={{ fontSize:14, color:GREEN, fontWeight:700, marginBottom:6 }}>✅ Payment Verified by KaamReady</p>
+          <p style={{ fontSize:13, color:'#888', margin:'4px 0 20px' }}>₹{booking?.amount} payment confirmed · Thank you!</p>
+          <Btn label="Back to Home" onClick={()=>{ resetAll(); setTab('home') }} />
+        </Card>
+      )}
+
+      {/* STEP 7 — Scheduled */}
       {step===7 && (
-        <Card style={{ textAlign:'center', padding:36, animation:'popIn .4s ease' }}>
+        <Card style={{ textAlign:'center', padding:36 }}>
           <div style={{ fontSize:56, marginBottom:12 }}>📅</div>
           <p style={{ fontWeight:800, fontSize:20 }}>Booking Scheduled!</p>
           <p style={{ fontSize:13, color:'#888', margin:'8px 0 20px' }}>
-            {selSvc?.lbl} · {schedAt ? new Date(schedAt).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}<br/>
-            A worker will accept it and arrive at the scheduled time.
+            {selSvc?.lbl} · {schedAt ? new Date(schedAt).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}
           </p>
-          <Btn label="Back to Home" onClick={() => { resetAll(); setTab('home') }} />
+          <Btn label="Back to Home" onClick={()=>{ resetAll(); setTab('home') }} />
         </Card>
       )}
 
-      {step===6 && (
-        <Card style={{ textAlign:'center', padding:36, animation:'popIn .4s ease' }}>
-          <div style={{ fontSize:60, marginBottom:12 }}>🎉</div>
-          <p style={{ fontWeight:800, fontSize:22 }}>All Done!</p>
-          <p style={{ fontSize:13, color:'#888', margin:'6px 0 20px' }}>₹{booking?.amount} paid via UPI · confirmed by {worker?.name}</p>
-          <Btn label="Back to Home" onClick={() => { resetAll(); setTab('home') }} />
+      {/* STEP 8 — Payment proof rejected */}
+      {step===8 && (
+        <Card style={{ textAlign:'center', padding:36 }}>
+          <div style={{ fontSize:52, marginBottom:12 }}>❌</div>
+          <p style={{ fontWeight:800, fontSize:18, color:'#dc2626' }}>Proof Rejected</p>
+          <p style={{ fontSize:13, color:'#888', margin:'8px 0 20px' }}>
+            {booking?.rejection_reason || 'The payment screenshot could not be verified. Please upload a clearer screenshot showing the transaction.'}
+          </p>
+          <button onClick={resubmitProof} style={{ width:'100%', background:Y, border:'none', borderRadius:12, padding:14, fontWeight:800, fontSize:15, cursor:'pointer', fontFamily:'inherit' }}>
+            📸 Re-upload Screenshot
+          </button>
         </Card>
       )}
     </div>
