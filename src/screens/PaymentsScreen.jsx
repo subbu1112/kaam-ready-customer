@@ -4,10 +4,12 @@ import { sb } from '../lib/supabase'
 const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', BK='#1C1C1E', GREEN='#22c55e'
 
 const PAY_STATUS = {
-  paid:    { bg:'#D1FAE5', c:'#065F46', label:'✓ Paid' },
-  pending: { bg:YL,        c:YD,        label:'⏳ Pending' },
-  failed:  { bg:'#FEE2E2', c:'#991B1B', label:'✗ Failed' },
-  refunded:{ bg:'#EDE9FE', c:'#5B21B6', label:'↩ Refunded' },
+  paid:                  { bg:'#D1FAE5', c:'#065F46', label:'✓ Paid' },
+  verified:              { bg:'#D1FAE5', c:'#065F46', label:'✓ Verified' },
+  pending_verification:  { bg:'#E0F2FE', c:'#0369A1', label:'🔍 Under Review' },
+  pending:               { bg:YL,        c:YD,        label:'⏳ Pending' },
+  failed:                { bg:'#FEE2E2', c:'#991B1B', label:'✗ Failed' },
+  refunded:              { bg:'#EDE9FE', c:'#5B21B6', label:'↩ Refunded' },
 }
 
 export default function PaymentsScreen({ user }) {
@@ -32,10 +34,10 @@ export default function PaymentsScreen({ user }) {
   const filtered = bookings.filter(b => filter==='all' || b.payment_status===filter)
 
   const totalPaid    = bookings.filter(b=>b.payment_status==='paid').reduce((s,b)=>s+(b.amount||0),0)
-  const totalPending = bookings.filter(b=>b.payment_status==='pending').reduce((s,b)=>s+(b.amount||0),0)
+  const totalPending = bookings.filter(b=>b.payment_status==='pending'||b.payment_status==='pending_verification').reduce((s,b)=>s+(b.amount||0),0)
 
   function downloadInvoice(b) {
-    const content = `KAAM READY — INVOICE\n${'='.repeat(40)}\nBooking ID: ${b.id}\nService: ${b.service}\nDate: ${fmtDate(b.created_at)}\nAmount: ${fmt(b.amount)}\nStatus: ${b.payment_status?.toUpperCase()}\nLocation: ${b.address||b.city||'—'}\n${b.transaction_id?`Transaction ID: ${b.transaction_id}\n`:''}\n${'='.repeat(40)}\nThank you for using Kaam Ready!\nsupport@kaamready.in | 1800-KR-HELP`
+    const content = `KAAM READY — INVOICE\n${'='.repeat(40)}\nBooking ID: ${b.id}\nService: ${b.service}\nDate: ${fmtDate(b.created_at)}\nAmount: ${fmt(b.amount)}\nStatus: ${b.payment_status?.toUpperCase()}\nLocation: ${b.address||b.city||'—'}\n${b.transaction_id?`Transaction ID: ${b.transaction_id}\n`:''}\n${'='.repeat(40)}\nThank you for using Kaam Ready!\nsupport@kaamready.in | 6362869636`
     const blob = new Blob([content],{type:'text/plain'})
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)

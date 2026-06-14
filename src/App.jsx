@@ -78,7 +78,14 @@ export default function App() {
   }, [])
 
   async function loadProfile(uid) {
-    const { data } = await sb.from('profiles').select('city,name,avatar_url').eq('id', uid).single()
+    const { data } = await sb.from('profiles').select('city,name,avatar_url,is_blocked,is_deleted').eq('id', uid).single()
+    if (data?.is_blocked || data?.is_deleted) {
+      await sb.auth.signOut()
+      setUser(null); setProfile(null); setScreen('landing')
+      setTimeout(() => showToast('Your account has been suspended. Contact support: 6362869636'), 400)
+      setAuthChecked(true)
+      return
+    }
     setProfile(data)
     if (data?.city) { setCity(data.city); setScreen('main') }
     else setScreen('city')

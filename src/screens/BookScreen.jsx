@@ -235,7 +235,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           </div>
         </Card>
         {booking?.address_lat && booking?.address_lng && (
-          <MapView lat={booking.address_lat} lng={booking.address_lng} workerLat={worker?.current_lat} workerLng={worker?.current_lng} label="Job Location" />
+          <MapView customerLat={booking.address_lat} customerLng={booking.address_lng} workerLat={worker?.lat} workerLng={worker?.lng} />
         )}
       </>}
 
@@ -325,7 +325,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
         <Card style={{ textAlign:'center', padding:36 }}>
           <div style={{ fontSize:52, marginBottom:14 }}>🔍</div>
           <p style={{ fontWeight:800, fontSize:18 }}>Verifying Payment</p>
-          <p style={{ fontSize:13, color:'#888', margin:'8px 0 4px' }}>Our admin team is reviewing your payment screenshot.</p>
+          <p style={{ fontSize:13, color:'#888', margin:'8px 0 4px' }}>Our admin team is verifying your UPI payment.</p>
           <p style={{ fontSize:12, color:'#bbb', marginBottom:20 }}>This usually takes under 30 minutes during business hours.</p>
           <div style={{ background:YL, borderRadius:12, padding:'12px 16px', textAlign:'left' }}>
             <p style={{ fontSize:12, fontWeight:700, color:YD, marginBottom:4 }}>What happens next?</p>
