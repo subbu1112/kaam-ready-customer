@@ -12,6 +12,7 @@ export default function LoginScreen({ setScreen, showToast }) {
   const [pass,  setPass]  = useState('')
   const [isReg, setIsReg] = useState(false)      // false=sign in, true=sign up
   const [busy,  setBusy]  = useState(false)
+  const { createClient } = window.__supabase || {}
 
   async function sendOTP() {
     if (phone.length < 10) { showToast('Enter a valid 10-digit number'); return }
@@ -60,7 +61,7 @@ export default function LoginScreen({ setScreen, showToast }) {
       {/* Tab switcher */}
       <div style={{ display:'flex', margin:'20px 24px 0', background:'#f2f2f7', borderRadius:12, padding:4, gap:4 }}>
         {[['phone','📱 Phone OTP'],['email','✉️ Email']].map(([t,l]) => (
-          <button key={t} type="button" onClick={() => setTab(t)}
+          <button key={t} onClick={() => setTab(t)}
             style={{ flex:1, padding:'10px 0', borderRadius:9, border:'none', fontWeight:700, fontSize:13,
               background:tab===t?'#fff':'transparent', color:tab===t?'#000':'#888',
               boxShadow:tab===t?'0 1px 4px rgba(0,0,0,.1)':'none', cursor:'pointer', fontFamily:'inherit' }}>
@@ -87,7 +88,7 @@ export default function LoginScreen({ setScreen, showToast }) {
           <Card>
             <div style={{ display:'flex', marginBottom:16 }}>
               {[['Sign In', false],['Sign Up', true]].map(([l,r]) => (
-                <button key={l} type="button" onClick={() => setIsReg(r)}
+                <button key={l} onClick={() => setIsReg(r)}
                   style={{ flex:1, padding:'8px 0', border:'none', borderBottom:'2px solid '+(isReg===r?'#F5C000':'#eee'),
                     background:'none', fontWeight:700, fontSize:13, color:isReg===r?'#000':'#aaa', cursor:'pointer', fontFamily:'inherit' }}>
                   {l}

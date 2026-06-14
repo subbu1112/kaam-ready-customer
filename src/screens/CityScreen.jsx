@@ -16,7 +16,7 @@ export default function CityScreen({ user, setCity, setScreen, showToast }) {
       </div>
       <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:8 }}>
         {KA_CITIES.map(c => (
-          <button key={c} type="button" onClick={() => choose(c)}
+          <button key={c} onClick={() => choose(c)}
             style={{ background:'#fff', border:'1.5px solid #E5E5EA', borderRadius:12,
               padding:'13px 16px', fontWeight:600, fontSize:14, cursor:'pointer',
               fontFamily:'inherit', textAlign:'left' }}>

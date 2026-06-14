@@ -7,7 +7,7 @@ const VARIANTS = {
 export default function Btn({ label, onClick, variant='y', style={}, disabled=false }) {
   const v = VARIANTS[variant] || VARIANTS.y
   return (
-    <button type="button" onClick={onClick} disabled={disabled}
+    <button onClick={onClick} disabled={disabled}
       style={{ width:'100%', ...v, borderRadius:14, padding:15, fontSize:15, fontWeight:700,
         cursor:disabled?'not-allowed':'pointer', fontFamily:'inherit',
         opacity:disabled?0.6:1, transition:'.15s', ...style }}>

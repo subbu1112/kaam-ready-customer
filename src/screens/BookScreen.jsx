@@ -5,7 +5,7 @@ import Btn  from '../components/Btn'
 import MapView from '../components/MapView'
 import { serviceFloor } from '../constants'
 
-import { Y, YD, YL, GREEN } from '../theme'
+const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', GREEN='#22c55e'
 
 // Flow: 0 describe · 1 searching · 2 worker working · 3 approve price & pay · 4 no workers · 5 waiting confirm · 6 done
 export default function BookScreen({ user, city, selSvc, setTab, showToast, loadBookings, resume, clearResume, rebookWorker, clearRebook }) {
@@ -166,7 +166,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             <p style={{ fontSize:14, fontWeight:700 }}>{selSvc?.ico} {selSvc?.lbl} Request</p>
             <p style={{ fontSize:11, color:'rgba(0,0,0,.6)' }}>📍 {city}</p>
           </div>
-          {step<3 && <button type="button" onClick={cancel} style={{ background:'rgba(0,0,0,.12)', border:'none', borderRadius:8, padding:'6px 12px', cursor:'pointer', fontSize:12, fontWeight:700 }}>✕ Cancel</button>}
+          {step<3 && <button onClick={cancel} style={{ background:'rgba(0,0,0,.12)', border:'none', borderRadius:8, padding:'6px 12px', cursor:'pointer', fontSize:12, fontWeight:700 }}>✕ Cancel</button>}
         </div>
         <div style={{ display:'flex', gap:6, justifyContent:'center', marginTop:10 }}>
           {['Describe','Searching','Working','Pay'].map((_,i) => (
@@ -194,7 +194,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:.6, marginBottom:10 }}>When?</p>
           <div style={{ display:'flex', gap:8, marginBottom: when==='later' ? 12 : 0 }}>
             {[['now','⚡ Now'],['later','📅 Schedule']].map(([v,lb]) => (
-              <button key={v} type="button" onClick={() => setWhen(v)}
+              <button key={v} onClick={() => setWhen(v)}
                 style={{ flex:1, background: when===v ? Y : '#f5f5f5', border:'none', borderRadius:10, padding:11, fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>{lb}</button>
             ))}
           </div>
@@ -301,7 +301,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
               <span key={n} onClick={() => setRating(n)} style={{ fontSize:34, cursor:'pointer', filter:rating>=n?'none':'grayscale(1) opacity(.4)' }}>⭐</span>
             ))}
           </div>
-          <button type="button" onClick={openUpiApp}
+          <button onClick={openUpiApp}
             style={{ width:'100%', background:Y, border:'none', borderRadius:12, padding:15, fontWeight:800, fontSize:15, cursor:'pointer', fontFamily:'inherit' }}>
             Pay ₹{booking?.amount} via UPI 📲
           </button>
@@ -309,7 +309,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             Opens GPay / PhonePe / Paytm with the amount pre-filled
             {worker?.upi_id ? <> · paying to <b>{worker.upi_id}</b></> : null}
           </p>
-          <button type="button" onClick={markPaid} disabled={paying}
+          <button onClick={markPaid} disabled={paying}
             style={{ width:'100%', background:'#1C1C1E', color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit', opacity:paying?.6:1 }}>
             {paying ? 'Saving...' : "I've Paid ✓"}
           </button>
@@ -323,7 +323,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           <p style={{ fontWeight:800, fontSize:18 }}>No Workers Available</p>
           <p style={{ fontSize:13, color:'#888', margin:'8px 0 20px' }}>No workers in {city} accepted this job right now. Try again in a few minutes.</p>
           <Btn label="Try Again" onClick={() => { setStep(0); setWorker(null); workerRef.current=null }} />
-          <button type="button" onClick={() => setTab('home')}
+          <button onClick={() => setTab('home')}
             style={{ display:'block', width:'100%', margin:'10px 0 0', background:'none', border:'none', color:'#aaa', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
             Go Home
           </button>

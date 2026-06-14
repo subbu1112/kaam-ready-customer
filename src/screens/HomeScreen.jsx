@@ -3,7 +3,7 @@ import { SERVICES } from '../constants'
 import Card from '../components/Card'
 import Btn  from '../components/Btn'
 
-import { Y, YD, YL } from '../theme'
+const Y='#F5C000', YD='#B8900A', YL='#FFF8D6'
 
 export default function HomeScreen({ city, selSvc, setSelSvc, setTab, bookings, loadBookings, showToast }) {
   useEffect(() => { loadBookings() }, [])
@@ -14,7 +14,7 @@ export default function HomeScreen({ city, selSvc, setSelSvc, setTab, bookings, 
           <h1 style={{ fontSize:20, fontWeight:800 }}>Kaam Ready ⚡</h1>
           <p style={{ fontSize:12, color:'rgba(0,0,0,.6)' }}>📍 {city||'Karnataka'}</p>
         </div>
-        <button type="button" aria-label="Profile" onClick={() => setTab('profile')}
+        <button onClick={() => setTab('profile')}
           style={{ width:36, height:36, borderRadius:10, background:'rgba(0,0,0,.12)', border:'none', cursor:'pointer', fontSize:18 }}>👤</button>
       </div>
       <Card style={{ background:YL, border:'1.5px solid '+Y }}>

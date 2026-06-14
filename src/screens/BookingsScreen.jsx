@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { sb } from '../lib/supabase'
 import { SERVICES } from '../constants'
 import Card from '../components/Card'
-import { Y, RED } from '../theme'
 import Btn  from '../components/Btn'
 
 const YD='#B8900A'
@@ -57,18 +56,18 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
     <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
       <p style={{ fontWeight:800, fontSize:22, padding:'4px 0 0' }}>My Bookings</p>
       {reportFor && (
-        <div role="dialog" aria-modal="true" aria-label="Report Problem" style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:999, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:999, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
           <div style={{ background:'#fff', borderRadius:'24px 24px 0 0', width:'100%', maxWidth:430, padding:'20px 20px 36px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
               <p style={{ fontWeight:800, fontSize:17 }}>⚠️ Report a Problem</p>
-              <button type="button" onClick={() => { setReportFor(null); setReason('') }} style={{ background:'#f0f0f0', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit' }}>Close</button>
+              <button onClick={() => { setReportFor(null); setReason('') }} style={{ background:'#f0f0f0', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit' }}>Close</button>
             </div>
             <p style={{ fontSize:12, color:'#888', marginBottom:10 }}>{reportFor.service} · ₹{reportFor.amount||0}</p>
             <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3}
               placeholder="What went wrong? e.g. charged more than agreed, poor work quality..."
               style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:12, fontSize:14, outline:'none', fontFamily:'inherit', resize:'none', marginBottom:12 }} />
-            <button type="button" onClick={submitReport} disabled={busy}
-              style={{ width:'100%', background:RED, color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:800, fontSize:14, cursor:'pointer', fontFamily:'inherit', opacity:busy?.6:1 }}>
+            <button onClick={submitReport} disabled={busy}
+              style={{ width:'100%', background:'#dc2626', color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:800, fontSize:14, cursor:'pointer', fontFamily:'inherit', opacity:busy?.6:1 }}>
               {busy ? 'Sending...' : 'Submit Report'}
             </button>
           </div>
@@ -114,11 +113,11 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
             {(b.status==='completed' || b.status==='cancelled') && (
               <div style={{ display:'flex', gap:8, margin:'10px 0' }}>
                 {b.worker_id && b.status==='completed' && (
-                  <button type="button" onClick={() => rebook(b)}
+                  <button onClick={() => rebook(b)}
                     style={{ flex:1, background:'#FFF8D6', color:'#B8900A', border:'none', borderRadius:10, padding:'9px 0', fontWeight:700, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>🔁 Rebook Worker</button>
                 )}
                 {b.status==='completed' && (
-                  <button type="button" onClick={() => setReportFor(b)}
+                  <button onClick={() => setReportFor(b)}
                     style={{ flex:1, background:'#FEE2E2', color:'#991B1B', border:'none', borderRadius:10, padding:'9px 0', fontWeight:700, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>⚠️ Report Problem</button>
                 )}
               </div>
