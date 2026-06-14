@@ -1,18 +1,30 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { sb } from './lib/supabase'
-import LandingScreen  from './screens/LandingScreen'
-import LoginScreen    from './screens/LoginScreen'
-import OTPScreen      from './screens/OTPScreen'
-import CityScreen     from './screens/CityScreen'
-import HomeScreen     from './screens/HomeScreen'
-import BookScreen     from './screens/BookScreen'
-import SearchScreen   from './screens/SearchScreen'
-import BookingsScreen from './screens/BookingsScreen'
-import ProfileScreen  from './screens/ProfileScreen'
-import TabBar         from './components/TabBar'
-import Toast          from './components/Toast'
+import TabBar  from './components/TabBar'
+import Toast   from './components/Toast'
 import TermsModal, { termsAccepted, acceptTerms } from './components/TermsModal'
 import { SERVICES } from './constants'
+
+// ── Lazy-loaded screens (code splitting) ─────────────────────────────────────
+const LandingScreen  = lazy(() => import('./screens/LandingScreen'))
+const LoginScreen    = lazy(() => import('./screens/LoginScreen'))
+const OTPScreen      = lazy(() => import('./screens/OTPScreen'))
+const CityScreen     = lazy(() => import('./screens/CityScreen'))
+const HomeScreen     = lazy(() => import('./screens/HomeScreen'))
+const BookScreen     = lazy(() => import('./screens/BookScreen'))
+const SearchScreen   = lazy(() => import('./screens/SearchScreen'))
+const BookingsScreen = lazy(() => import('./screens/BookingsScreen'))
+const ProfileScreen  = lazy(() => import('./screens/ProfileScreen'))
+
+// ── Full-screen loader shown while a lazy chunk loads ────────────────────────
+function PageLoader() {
+  return (
+    <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#F2F2F7' }}>
+      <div style={{ width:36, height:36, border:'3px solid #e5e7eb', borderTop:'3px solid #6366f1', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  )
+}
 
 export default function App() {
   const [screen,   setScreen]   = useState('landing')
@@ -29,8 +41,12 @@ export default function App() {
 
   useEffect(() => {
     if (!user?.id) return
-    sb.from('bookings').select('*').eq('user_id', user.id)
-      .in('status', ['assigned', 'priced']).order('created_at', { ascending: false }).limit(1)
+    sb.from('bookings')
+      .select('id,status,service_id,service,created_at')
+      .eq('user_id', user.id)
+      .in('status', ['assigned', 'priced'])
+      .order('created_at', { ascending: false })
+      .limit(1)
       .then(({ data }) => {
         const b = data?.[0]
         if (!b) return
@@ -71,8 +87,10 @@ export default function App() {
 
   async function loadBookings() {
     if (!user) return
-    const { data } = await sb.from('bookings').select('*')
-      .eq('user_id', user.id).order('created_at', { ascending: false })
+    const { data } = await sb.from('bookings')
+      .select('id,status,service,service_id,amount,payment_status,created_at,worker_id')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
     if (data) setBookings(data)
   }
 
@@ -84,30 +102,12 @@ export default function App() {
     rebookWorker, setRebookWorker, clearRebook: () => setRebookWorker(null),
   }
 
-  if (screen === 'landing') return (
-    <>
-      <LandingScreen setScreen={setScreen} />
-      {toast && <Toast msg={toast} />}
-    </>
-  )
-  if (screen === 'login')  return <><LoginScreen  {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
-  if (screen === 'otp')    return <><OTPScreen    {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
-  if (screen === 'city')   return <><CityScreen   {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>
-
   return (
-    <div style={{
-      height: '100vh', display: 'flex', flexDirection: 'column',
-      background: '#F2F2F7', maxWidth: 430, margin: '0 auto',
-      overflow: 'hidden', position: 'relative',
-    }}>
-      {tab === 'home'     && <HomeScreen     {...ctx} setTab={setTab} />}
-      {tab === 'search'   && <SearchScreen   {...ctx} setTab={setTab} />}
-      {tab === 'book'     && <BookScreen     {...ctx} setTab={setTab} />}
-      {tab === 'bookings' && <BookingsScreen {...ctx} setTab={setTab} />}
-      {tab === 'profile'  && <ProfileScreen  {...ctx} setTab={setTab} />}
-      <TabBar tab={tab} setTab={setTab} />
-      {showTerms && <TermsModal onAccept={() => { acceptTerms(); setShowTerms(false) }} />}
-      {toast && <Toast msg={toast} />}
-    </div>
-  )
-}
+    <Suspense fallback={<PageLoader />}>
+      {screen === 'landing' && (
+        <>
+          <LandingScreen setScreen={setScreen} />
+          {toast && <Toast msg={toast} />}
+        </>
+      )}
+      {screen === 'login' && <><LoginScreen {...ctx} setScreen={
