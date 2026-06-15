@@ -1,218 +1,254 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { sb } from '../lib/supabase'
+import Card from '../components/Card'
+import Btn  from '../components/Btn'
 import AvatarUpload from '../components/AvatarUpload'
+import HelpScreen from './HelpScreen'
+import AddressScreen from './AddressScreen'
+import LegalScreen from './LegalScreen'
+import { KA_CITIES } from '../constants'
 
-const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', BK='#1C1C1E', GREEN='#22c55e'
+const YL = '#FFF8D6', YD = '#B8900A', Y = '#F5C000', BK = '#1C1C1E'
 
-const KARNATAKA_CITIES = ['Bengaluru','Mysuru','Mangaluru','Hubballi','Belagavi','Kalaburagi','Davanagere','Ballari','Shimoga','Tumkuru','Udupi','Hassan','Mandya','Bidar','Raichur','Gadag','Dharwad','Vijayapura','Bagalkote','Chikkamagaluru']
-const KA_STATES = ['Karnataka','Andhra Pradesh','Tamil Nadu','Kerala','Telangana','Maharashtra','Goa']
+function PaymentModal({ user, onClose, showToast }) {
+  const [upi,    setUpi]    = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved,  setSaved]  = useState(() => {
+    try { return JSON.parse(localStorage.getItem('kr_payment_methods') || '[]') } catch { return [] }
+  })
 
-export default function ProfileScreen({ user, city, setCity, showToast, setScreen, setTab }) {
-  const [profile,      setProfileData]  = useState(null)
-  const [view,         setView]         = useState('main')
-  const [contName,     setContName]     = useState('')
-  const [contEmail,    setContEmail]    = useState('')
-  const [contPhone,    setContPhone]    = useState('')
-  const [contAltPhone, setContAltPhone] = useState('')
-  const [contAddress,  setContAddress]  = useState('')
-  const [contCity,     setContCity]     = useState('')
-  const [contState,    setContState]    = useState('Karnataka')
-  const [contSaving,   setContSaving]   = useState(false)
-  const [signingOut,   setSigningOut]   = useState(false)
-
-  useEffect(() => {
-    if (!user?.id) return
-    sb.from('profiles')
-      .select('full_name,name,email,phone,alternate_phone,address,city,state,avatar_url,total_bookings,created_at')
-      .eq('id', user.id).single()
-      .then(({ data }) => {
-        if (data) {
-          setProfileData(data)
-          setContName(data.full_name || data.name || '')
-          setContEmail(data.email || '')
-          setContPhone(data.phone || user?.phone?.replace('+91','') || '')
-          setContAltPhone(data.alternate_phone || '')
-          setContAddress(data.address || '')
-          setContCity(data.city || city || '')
-          setContState(data.state || 'Karnataka')
-        } else {
-          // Profile row may not exist yet — create it
-          sb.from('profiles').upsert({ id: user.id, phone: user?.phone?.replace('+91','') || null }).catch(()=>{})
-        }
-      })
-  }, [user?.id])
-
-  async function saveContact() {
-    if (!user) return
-    if (!contName.trim()) { showToast('Please enter your name'); return }
-    setContSaving(true)
-    const updates = {
-      id: user.id,
-      full_name:       contName.trim(),
-      name:            contName.trim(),
-      email:           contEmail.trim() || null,
-      phone:           contPhone.replace(/\D/g,'').slice(0,10) || null,
-      alternate_phone: contAltPhone.replace(/\D/g,'').slice(0,10) || null,
-      address:         contAddress.trim() || null,
-      city:            contCity.trim() || null,
-      state:           contState || null,
-      updated_at:      new Date().toISOString(),
-    }
-    const { error } = await sb.from('profiles').upsert(updates, { onConflict:'id' })
-    if (error) showToast('Save failed: ' + error.message)
-    else {
-      showToast('Profile saved ✓')
-      setProfileData(p => ({ ...p, ...updates }))
-      if (contCity && setCity) setCity(contCity)
-      setView('main')
-    }
-    setContSaving(false)
+  function addUPI() {
+    if (!upi.includes('@')) { showToast('Enter a valid UPI ID (e.g. name@upi)'); return }
+    setSaving(true)
+    const updated = [...saved.filter(u => u !== upi), upi]
+    localStorage.setItem('kr_payment_methods', JSON.stringify(updated))
+    setSaved(updated)
+    setUpi('')
+    showToast('UPI saved')
+    setSaving(false)
+  }
+  function remove(u) {
+    const updated = saved.filter(x => x !== u)
+    localStorage.setItem('kr_payment_methods', JSON.stringify(updated))
+    setSaved(updated)
   }
 
-  async function signOut() {
-    setSigningOut(true)
-    try { await sb.auth.signOut(); setScreen('landing') }
-    catch { showToast('Sign out failed'); setSigningOut(false) }
-  }
-
-  const phone       = profile?.phone || user?.phone?.replace('+91','') || ''
-  const displayName = profile?.full_name || profile?.name || (phone ? '+91 '+phone : 'Customer')
-  const memberSince = profile?.created_at ? new Date(profile.created_at).toLocaleDateString('en-IN',{month:'short',year:'numeric'}) : '—'
-
-  // ── EDIT VIEW ──────────────────────────────────────────────────────
-  if (view === 'contact') return (
-    <div style={{ flex:1, overflowY:'auto', background:'#F2F2F7' }}>
-      <div style={{ background:BK, padding:'52px 20px 20px' }}>
-        <button onClick={()=>setView('main')} style={{ background:'rgba(255,255,255,.12)', border:'none', borderRadius:10, padding:'6px 14px', color:'#fff', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:600, marginBottom:14 }}>← Back</button>
-        <h1 style={{ fontSize:20, fontWeight:800, color:Y }}>✏️ Edit Profile</h1>
-        <p style={{ fontSize:12, color:'rgba(255,255,255,.5)', marginTop:4 }}>All changes are saved to your account</p>
-      </div>
-      <div style={{ padding:'16px 16px 40px', display:'flex', flexDirection:'column', gap:12 }}>
-
-        {/* Avatar at top of edit */}
-        <div style={{ background:'#fff', borderRadius:16, padding:20, textAlign:'center' }}>
-          <AvatarUpload userId={user?.id} currentUrl={profile?.avatar_url} table="profiles"
-            onUploaded={()=>sb.from('profiles').select('avatar_url').eq('id',user.id).single().then(({data})=>setProfileData(p=>({...p,...data})))} />
-          <p style={{ fontSize:12, color:'#8e8e93', marginTop:8 }}>Tap photo to change</p>
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:999, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+      <div style={{ background:'#fff', borderRadius:'24px 24px 0 0', width:'100%', maxWidth:430, padding:'20px 20px 40px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+          <p style={{ fontWeight:800, fontSize:18 }}>Payment Methods</p>
+          <button onClick={onClose} style={{ background:'#f2f2f7', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>Close</button>
         </div>
-
-        {[
-          { label:'Full Name *',       type:'text',  val:contName,     set:setContName,     ph:'Raju Kumar' },
-          { label:'Mobile Number',     type:'tel',   val:contPhone,    set:v=>setContPhone(v.replace(/\D/g,'').slice(0,10)), ph:'98765 43210' },
-          { label:'Email Address',     type:'email', val:contEmail,    set:setContEmail,    ph:'you@gmail.com' },
-          { label:'Alternate Phone',   type:'tel',   val:contAltPhone, set:v=>setContAltPhone(v.replace(/\D/g,'').slice(0,10)), ph:'87654 32109' },
-          { label:'Home Address',      type:'text',  val:contAddress,  set:setContAddress,  ph:'Flat 101, Brigade Road, Bengaluru' },
-        ].map(({label,type,val,set,ph})=>(
-          <div key={label} style={{ background:'#fff', borderRadius:14, padding:14 }}>
-            <label style={{ fontSize:11, fontWeight:700, color:'#8e8e93', display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:.5 }}>{label}</label>
-            <input value={val} onChange={e=>set(e.target.value)} type={type} placeholder={ph}
-              style={{ width:'100%', background:'#F2F2F7', border:'1.5px solid #E5E5EA', borderRadius:10, padding:11, fontSize:14, outline:'none', fontFamily:'inherit', color:BK, boxSizing:'border-box' }} />
+        {saved.length > 0 && (
+          <div style={{ marginBottom:16 }}>
+            {saved.map(u => (
+              <div key={u} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'#f9f9f9', borderRadius:12, marginBottom:8 }}>
+                <span style={{ fontSize:20 }}>&#128241;</span>
+                <span style={{ flex:1, fontSize:14, fontWeight:600 }}>{u}</span>
+                <button onClick={() => remove(u)} style={{ background:'none', border:'none', color:'#ef4444', fontSize:18, cursor:'pointer' }}>✕</button>
+              </div>
+            ))}
           </div>
-        ))}
-
-        {/* City picker */}
-        <div style={{ background:'#fff', borderRadius:14, padding:14 }}>
-          <label style={{ fontSize:11, fontWeight:700, color:'#8e8e93', display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:.5 }}>City</label>
-          <select value={contCity} onChange={e=>setContCity(e.target.value)}
-            style={{ width:'100%', background:'#F2F2F7', border:'1.5px solid #E5E5EA', borderRadius:10, padding:11, fontSize:14, outline:'none', fontFamily:'inherit', color:BK }}>
-            <option value="">Select city...</option>
-            {KARNATAKA_CITIES.map(c=><option key={c} value={c}>{c}</option>)}
-          </select>
-          <input value={contCity} onChange={e=>setContCity(e.target.value)} placeholder="Or type your city"
-            style={{ width:'100%', background:'#F2F2F7', border:'1.5px solid #E5E5EA', borderRadius:10, padding:11, fontSize:14, outline:'none', fontFamily:'inherit', color:BK, boxSizing:'border-box', marginTop:8 }} />
+        )}
+        <p style={{ fontSize:13, color:'#888', marginBottom:10 }}>Add UPI ID</p>
+        <div style={{ display:'flex', gap:8 }}>
+          <input value={upi} onChange={e => setUpi(e.target.value)}
+            placeholder="yourname@paytm / @gpay"
+            style={{ flex:1, border:'1.5px solid #E5E5EA', borderRadius:12, padding:'12px 14px', fontSize:14, outline:'none', fontFamily:'inherit' }} />
+          <button onClick={addUPI} disabled={saving}
+            style={{ background:Y, border:'none', borderRadius:12, padding:'12px 18px', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>
+            Add
+          </button>
         </div>
-
-        {/* State picker */}
-        <div style={{ background:'#fff', borderRadius:14, padding:14 }}>
-          <label style={{ fontSize:11, fontWeight:700, color:'#8e8e93', display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:.5 }}>State</label>
-          <select value={contState} onChange={e=>setContState(e.target.value)}
-            style={{ width:'100%', background:'#F2F2F7', border:'1.5px solid #E5E5EA', borderRadius:10, padding:11, fontSize:14, outline:'none', fontFamily:'inherit', color:BK }}>
-            {KA_STATES.map(s=><option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-
-        <button onClick={saveContact} disabled={contSaving}
-          style={{ width:'100%', background:Y, border:'none', borderRadius:14, padding:15, color:BK, fontWeight:800, fontSize:15, cursor:'pointer', fontFamily:'inherit', opacity:contSaving?0.6:1 }}>
-          {contSaving ? 'Saving...' : '💾 Save Profile'}
-        </button>
-        <p style={{ fontSize:11, color:'#8e8e93', textAlign:'center' }}>Your data is encrypted and never shared</p>
       </div>
     </div>
   )
+}
 
-  // ── MAIN VIEW ──────────────────────────────────────────────────────
-  return (
-    <div style={{ flex:1, overflowY:'auto', background:'#F2F2F7' }}>
-      <div style={{ background:BK, padding:'52px 20px 28px', textAlign:'center' }}>
-        <AvatarUpload userId={user?.id} currentUrl={profile?.avatar_url} table="profiles"
-          onUploaded={()=>sb.from('profiles').select('avatar_url').eq('id',user.id).single().then(({data})=>setProfileData(p=>({...p,...data})))} />
-        <p style={{ color:'#fff', fontWeight:800, fontSize:20, marginTop:10, marginBottom:2 }}>{displayName}</p>
-        <p style={{ color:'rgba(255,255,255,.6)', fontSize:13 }}>{profile?.city || city || 'Bengaluru'}{profile?.state ? ', '+profile.state : ''} · Since {memberSince}</p>
-        <button onClick={()=>setView('contact')}
-          style={{ marginTop:14, background:Y, border:'none', borderRadius:20, padding:'7px 20px', color:BK, fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
-          ✏️ Edit Profile
-        </button>
-      </div>
+export default function ProfileScreen({ user, city, setCity, bookings, showToast, setTab }) {
+  const [modal,        setModal]       = useState(null)
+  const [subscreen,    setSubscreen]   = useState(null)
+  const [editingCity,  setEditingCity] = useState(false)
+  const [contactEdit,  setContactEdit] = useState(false)
+  const [contEmail,    setContEmail]   = useState('')
+  const [contAltPhone, setContAltPhone]= useState('')
+  const [contAddress,  setContAddress] = useState('')
+  const [contSaving,   setContSaving]  = useState(false)
+  const [deleting,     setDeleting]    = useState(false)
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, padding:'12px 16px 0' }}>
-        {[['Bookings', profile?.total_bookings||0,'📋'],['Member Since',memberSince,'🗓️']].map(([l,v,ico])=>(
-          <div key={l} style={{ background:'#fff', borderRadius:14, padding:'12px 14px', textAlign:'center' }}>
-            <div style={{ fontSize:22, marginBottom:4 }}>{ico}</div>
-            <p style={{ fontWeight:900, fontSize:18, color:BK }}>{v}</p>
-            <p style={{ fontSize:11, color:'#8e8e93', marginTop:2 }}>{l}</p>
-          </div>
-        ))}
-      </div>
+  // Load profile data once
+  useState(() => {
+    if (user?.id) {
+      sb.from('profiles').select('email,alternate_phone,address,phone').eq('id', user.id).single()
+        .then(({ data }) => {
+          if (data) {
+            setContEmail(data.email || '')
+            setContAltPhone(data.alternate_phone || '')
+            setContAddress(data.address || '')
+          }
+        })
+    }
+  })
 
-      <div style={{ padding:'12px 16px 32px', display:'flex', flexDirection:'column', gap:10 }}>
-        <div style={{ background:'#fff', borderRadius:16, overflow:'hidden' }}>
-          <div style={{ background:YL, padding:'10px 16px' }}>
-            <p style={{ fontWeight:800, fontSize:13, color:YD }}>📞 Contact Information</p>
-          </div>
-          {[
-            ['Phone',      phone?'+91 '+phone:'—'],
-            ['Email',      profile?.email||'—'],
-            ['Alt. Phone', profile?.alternate_phone||'—'],
-            ['Address',    profile?.address||'—'],
-            ['City',       profile?.city||city||'—'],
-            ['State',      profile?.state||'Karnataka'],
-          ].map(([l,v])=>(
-            <div key={l} style={{ display:'flex', gap:12, padding:'10px 16px', borderBottom:'1px solid #f9f9f9' }}>
-              <span style={{ color:'#8e8e93', fontSize:12, fontWeight:600, minWidth:90, flexShrink:0 }}>{l}</span>
-              <span style={{ color:BK, fontSize:13, wordBreak:'break-all' }}>{v}</span>
-            </div>
-          ))}
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
+  const totalSpend  = (bookings||[]).filter(b=>b.payment_status==='verified'||b.payment_status==='paid').reduce((s,b)=>s+(b.amount||0),0)
+
+  if (subscreen === 'help')
+    return <HelpScreen user={user} onBack={() => setSubscreen(null)} showToast={showToast} />
+  if (subscreen === 'addresses')
+    return <AddressScreen user={user} onBack={() => setSubscreen(null)} showToast={showToast} />
+  if (subscreen?.startsWith('legal-'))
+    return <LegalScreen section={subscreen.replace('legal-', '')} onBack={() => setSubscreen(null)} />
+
+  async function changeCity(c) {
+    setCity(c)
+    setEditingCity(false)
+    if (user) await sb.from('profiles').upsert({ id: user.id, city: c })
+    showToast('City changed to ' + c)
+  }
+
+  if (editingCity) {
+    return (
+      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', background:'#F2F2F7' }}>
+        <div style={{ background:BK, padding:'48px 20px 20px', flexShrink:0 }}>
+          <button onClick={() => setEditingCity(false)}
+            style={{ background:'rgba(255,255,255,.1)', border:'none', borderRadius:10, padding:'6px 14px', color:'#fff', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:600, marginBottom:12 }}>
+            ← Back
+          </button>
+          <h1 style={{ fontSize:22, fontWeight:800, color:Y }}>Change City</h1>
+          <p style={{ fontSize:13, color:'#636366', marginTop:4 }}>Select your city to find nearby workers</p>
         </div>
-
-        <div style={{ background:'#fff', borderRadius:16, overflow:'hidden' }}>
-          {[
-            { ico:'📋', label:'My Bookings',        sub:'View booking history',                action:()=>setTab('bookings') },
-            { ico:'💳', label:'Payments',           sub:'Payment history & receipts',          action:()=>setTab('payments') },
-            { ico:'🏙️', label:'Change City',        sub:city||'Select your city',             action:()=>setScreen('city') },
-            { ico:'🎫', label:'Help & Support',     sub:'Call: 6362869636 · Raise a ticket',  action:()=>setScreen('help') },
-            { ico:'📜', label:'Terms & Conditions', sub:'Platform policies',                   action:()=>setScreen('legal-terms') },
-            { ico:'🔒', label:'Privacy Policy',     sub:'How we protect your data',            action:()=>setScreen('legal-privacy') },
-            { ico:'💸', label:'Refund Policy',      sub:'Cancellation & refund guidelines',    action:()=>setScreen('legal-refund') },
-            { ico:'🚨', label:'Report an Issue',    sub:'Report misconduct or payment issue',  action:()=>setScreen('report') },
-          ].map(({ico,label,sub,action})=>(
-            <button key={label} onClick={action}
-              style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'13px 16px', borderBottom:'1px solid #f5f5f7', cursor:'pointer', background:'none', border:'none', borderBottom:'1px solid #f5f5f7', fontFamily:'inherit', textAlign:'left' }}>
-              <div style={{ width:40, height:40, borderRadius:12, background:YL, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>{ico}</div>
-              <div style={{ flex:1 }}>
-                <p style={{ fontSize:14, fontWeight:700, color:BK }}>{label}</p>
-                <p style={{ fontSize:11, color:'#8e8e93', marginTop:1 }}>{sub}</p>
-              </div>
-              <span style={{ color:'#c7c7cc', fontSize:18 }}>›</span>
+        <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:8 }}>
+          {KA_CITIES.map(c => (
+            <button key={c} onClick={() => changeCity(c)}
+              style={{ background: c===city ? YL : '#fff', border:'1.5px solid '+(c===city ? Y : '#E5E5EA'),
+                borderRadius:12, padding:'13px 16px', fontWeight:600, fontSize:14, cursor:'pointer',
+                fontFamily:'inherit', textAlign:'left', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              {c}
+              {c === city && <span style={{ color:YD, fontWeight:800 }}>Current</span>}
             </button>
           ))}
         </div>
-
-        <button onClick={signOut} disabled={signingOut}
-          style={{ width:'100%', background:'#FEE2E2', border:'1.5px solid #FCA5A5', borderRadius:14, padding:14, color:'#991B1B', fontWeight:700, fontSize:15, cursor:'pointer', fontFamily:'inherit', opacity:signingOut?0.6:1 }}>
-          {signingOut?'Signing out...':'🚪 Sign Out'}
-        </button>
-        <p style={{ textAlign:'center', fontSize:11, color:'#c7c7cc' }}>Kaam Ready v2.0 · Karnataka 🇮🇳</p>
       </div>
+    )
+  }
+
+  async function saveContact() {
+    if (!user?.id) return
+    setContSaving(true)
+    await sb.from('profiles').upsert({
+      id: user.id,
+      email: contEmail.trim() || null,
+      alternate_phone: contAltPhone.replace(/\D/g,'').slice(0,10) || null,
+      address: contAddress.trim() || null,
+    })
+    setContactEdit(false)
+    setContSaving(false)
+    showToast('Contact info saved ✓')
+  }
+
+  async function deleteAccount() {
+    if (!user?.id) return
+    if (!window.confirm('Delete your account? This cannot be undone. All your data will be permanently removed.')) return
+    setDeleting(true)
+    await sb.from('profiles').update({ is_deleted: true, is_blocked: true }).eq('id', user.id)
+    await sb.auth.signOut()
+    showToast('Account deleted. Goodbye.')
+    setDeleting(false)
+  }
+
+  const menus = [
+    { ico:'&#128203;', label:'My Bookings',        bg:'#D1FAE5', action:() => setTab('bookings') },
+    { ico:'&#128222;', label:'Contact Info',        bg:'#DBEAFE', action:() => setContactEdit(true) },
+    { ico:'&#128205;', label:'Change City',         bg:'#FFF8D6', action:() => setEditingCity(true) },
+    { ico:'&#127968;', label:'Saved Addresses',     bg:'#FFF8D6', action:() => setSubscreen('addresses') },
+    { ico:'&#128179;', label:'Payment Methods',     bg:'#F3F4F6', action:() => setModal('payment') },
+    { ico:'&#10067;',  label:'Help & Support',      bg:'#FEF3C7', action:() => setSubscreen('help') },
+    { ico:'&#128274;', label:'Privacy Policy',      bg:'#F3F4F6', action:() => setSubscreen('legal-privacy') },
+    { ico:'&#128220;', label:'Terms & Conditions',  bg:'#F3F4F6', action:() => setSubscreen('legal-terms') },
+    { ico:'&#128176;', label:'Refund Policy',       bg:'#F3F4F6', action:() => setSubscreen('legal-refund') },
+    { ico:'&#10060;',  label:'Cancellation Policy', bg:'#F3F4F6', action:() => setSubscreen('legal-cancel') },
+  ]
+
+  // Contact Info sub-screen
+  if (contactEdit) {
+    return (
+      <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+        <div style={{ background:'#fff', borderRadius:20, padding:20, border:'1px solid #eee' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+            <p style={{ fontWeight:800, fontSize:17 }}>📞 Contact Info</p>
+            <button onClick={() => setContactEdit(false)} style={{ background:'#f2f2f7', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>Back</button>
+          </div>
+          {[
+            ['Email Address', contEmail, setContEmail, 'you@gmail.com', 'email'],
+            ['Alternate Phone', contAltPhone, v => setContAltPhone(v.replace(/\D/g,'').slice(0,10)), '10-digit number', 'tel'],
+            ['Address', contAddress, setContAddress, 'House no, street, city', 'text'],
+          ].map(([label, val, setter, placeholder, type]) => (
+            <div key={label} style={{ marginBottom:14 }}>
+              <p style={{ fontSize:12, fontWeight:600, color:'#555', marginBottom:6 }}>{label}</p>
+              <input value={val} onChange={e => setter(e.target.value)} placeholder={placeholder} type={type}
+                style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:'12px 14px',
+                  fontSize:14, outline:'none', fontFamily:'inherit', boxSizing:'border-box' }} />
+            </div>
+          ))}
+          <Btn label={contSaving ? 'Saving...' : 'Save Changes ✓'} onClick={saveContact} disabled={contSaving} />
+        </div>
+      </div>
+    )
+  }
+
+  // Main profile view
+  return (
+    <div style={{ flex:1, overflowY:'auto', background:'#F2F2F7' }}>
+      {/* Header */}
+      <div style={{ background:BK, padding:'48px 20px 28px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+          <AvatarUpload user={user} size={64} showToast={showToast} />
+          <div style={{ flex:1 }}>
+            <h2 style={{ color:'#fff', fontWeight:800, fontSize:20 }}>{displayName}</h2>
+            <p style={{ color:'#636366', fontSize:13, marginTop:2 }}>📍 {city}</p>
+            {totalSpend > 0 && <p style={{ color:Y, fontSize:12, fontWeight:700, marginTop:4 }}>₹{totalSpend.toLocaleString('en-IN')} total spent</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Menu items */}
+      <div style={{ padding:16, display:'flex', flexDirection:'column', gap:8 }}>
+        {menus.map(m => (
+          <button key={m.label} onClick={m.action}
+            style={{ background:'#fff', borderRadius:16, padding:'14px 16px', border:'none', cursor:'pointer',
+              display:'flex', alignItems:'center', gap:14, width:'100%', fontFamily:'inherit' }}>
+            <div style={{ width:40, height:40, borderRadius:12, background:m.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}
+              dangerouslySetInnerHTML={{ __html: m.ico }} />
+            <span style={{ flex:1, fontWeight:600, fontSize:14, textAlign:'left' }}>{m.label}</span>
+            <span style={{ color:'#C7C7CC', fontSize:18 }}>›</span>
+          </button>
+        ))}
+
+        {/* Sign Out */}
+        <button onClick={() => sb.auth.signOut()}
+          style={{ background:'#fff', borderRadius:16, padding:'14px 16px', border:'1.5px solid #FEE2E2',
+            cursor:'pointer', display:'flex', alignItems:'center', gap:14, width:'100%', fontFamily:'inherit', marginTop:8 }}>
+          <div style={{ width:40, height:40, borderRadius:12, background:'#FEE2E2', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>
+            🚪
+          </div>
+          <span style={{ flex:1, fontWeight:600, fontSize:14, textAlign:'left', color:'#ef4444' }}>Sign Out</span>
+        </button>
+
+        {/* Delete Account — danger zone */}
+        <div style={{ background:'#fff', borderRadius:16, padding:'14px 16px', marginTop:4, border:'1.5px solid #fecaca' }}>
+          <p style={{ fontSize:11, fontWeight:700, color:'#ef4444', textTransform:'uppercase', letterSpacing:.6, marginBottom:8 }}>Danger Zone</p>
+          <button onClick={deleteAccount} disabled={deleting}
+            style={{ background:'#FEE2E2', borderRadius:12, padding:'11px 16px', border:'none',
+              cursor:'pointer', fontFamily:'inherit', fontWeight:700, fontSize:13, color:'#991b1b', width:'100%', opacity:deleting?0.6:1 }}>
+            {deleting ? 'Deleting...' : '🗑️ Delete My Account'}
+          </button>
+          <p style={{ fontSize:11, color:'#bbb', marginTop:8 }}>This permanently removes your account and all data. This cannot be undone.</p>
+        </div>
+      </div>
+
+      {modal === 'payment' && <PaymentModal user={user} onClose={() => setModal(null)} showToast={showToast} />}
     </div>
   )
 }
