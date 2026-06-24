@@ -47,9 +47,9 @@ export default function App() {
   useEffect(() => {
     if (!user?.id) return
     sb.from('bookings')
-      .select('id,status,service_id,service,created_at')
+      .select('*')
       .eq('user_id', user.id)
-      .in('status', ['assigned', 'priced'])
+      .in('status', ['searching', 'assigned', 'otp_verified', 'priced'])
       .order('created_at', { ascending: false })
       .limit(1)
       .then(({ data }) => {

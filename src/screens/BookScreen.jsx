@@ -70,6 +70,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
       if (resume.payment_status==='pending_verification') setStep(5)
       else if (resume.payment_status==='verified')        setStep(6)
       else if (resume.status==='priced')                  setStep(3)
+      else if (resume.status==='searching' && !resume.worker_id) setStep(1)
       else                                                setStep(2)
       subscribeBooking(resume.id)
       clearResume && clearResume()
