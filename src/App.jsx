@@ -15,6 +15,11 @@ const BookScreen     = lazy(() => import('./screens/BookScreen'))
 const SearchScreen   = lazy(() => import('./screens/SearchScreen'))
 const BookingsScreen = lazy(() => import('./screens/BookingsScreen'))
 const ProfileScreen  = lazy(() => import('./screens/ProfileScreen'))
+const LegalScreen    = lazy(() => import('./screens/LegalScreen'))
+const DeleteAccountPage = lazy(() => import('./screens/DeleteAccountPage'))
+
+// Public, no-login routes (needed for Google Play store listing URLs)
+const LEGAL_ROUTES = { '/privacy':'privacy', '/terms':'terms', '/refund':'refund', '/cancel':'cancel', '/cancellation':'cancel', '/contact':'contact', '/about':'about' }
 
 // ── Full-screen loader shown while a lazy chunk loads ────────────────────────
 function PageLoader() {
@@ -70,14 +75,29 @@ export default function App() {
         setUser(session.user)
         loadProfile(session.user.id)
       } else {
+        // Signed out (or no session) — always return to the landing page
         setUser(null)
-        if (authChecked) setScreen('landing')
+        setTab('home')
+        setScreen('landing')
       }
     })
     return () => subscription.unsubscribe()
   }, [])
 
+  async function logConsentOnce(uid) {
+    try {
+      if (localStorage.getItem('kr_consent_logged') === uid) return
+      await sb.from('consent_logs').insert({
+        user_id: uid, role: 'customer',
+        consented_to: 'terms_and_privacy', consent_version: '2025-06',
+        user_agent: navigator.userAgent,
+      })
+      localStorage.setItem('kr_consent_logged', uid)
+    } catch { /* non-blocking */ }
+  }
+
   async function loadProfile(uid) {
+    logConsentOnce(uid)
     const { data } = await sb.from('profiles').select('city').eq('id', uid).single()
     if (data?.city) { setCity(data.city); setScreen('main') }
     else setScreen('city')
@@ -102,6 +122,15 @@ export default function App() {
     rebookWorker, setRebookWorker, clearRebook: () => setRebookWorker(null),
   }
 
+  // Public URL routes (work without login) — for Play Store privacy / deletion links
+  const path = (typeof window !== 'undefined' ? window.location.pathname : '/').replace(/\/+$/, '').toLowerCase()
+  if (LEGAL_ROUTES[path]) {
+    return <Suspense fallback={<PageLoader />}><LegalScreen section={LEGAL_ROUTES[path]} onBack={() => { window.location.href = '/' }} /></Suspense>
+  }
+  if (path === '/delete-account' || path === '/delete') {
+    return <Suspense fallback={<PageLoader />}><DeleteAccountPage /></Suspense>
+  }
+
   return (
     <Suspense fallback={<PageLoader />}>
       {screen === 'landing' && (
@@ -115,7 +144,7 @@ export default function App() {
       {screen === 'city'  && <><CityScreen  {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>}
       {screen === 'main'  && (
         <div style={{
-          height: '100vh', display: 'flex', flexDirection: 'column',
+          height: '100dvh', display: 'flex', flexDirection: 'column',
           background: '#F2F2F7', maxWidth: 430, margin: '0 auto',
           overflow: 'hidden', position: 'relative',
         }}>

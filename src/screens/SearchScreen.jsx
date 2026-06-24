@@ -157,7 +157,7 @@ export default function SearchScreen({ city, setSelSvc, setTab, showToast }) {
 
   const loadWorkers = useCallback(async () => {
     setLoading(true)
-    let req = sb.from('workers')
+    let req = sb.from('workers_public')
       .select('id,name,skill,city,is_online,aadhaar_verified,avatar_url,rating,total_jobs,lat,lng,price_min')
       .eq('onboarding_done', true)
     if (city) req = req.ilike('city', city)

@@ -125,6 +125,52 @@ const LEGAL = {
       },
     ]
   },
+  contact: {
+    title: 'Contact & Grievance Officer',
+    icon: '📨',
+    lastUpdated: 'June 2025',
+    sections: [
+      {
+        heading: 'Grievance Officer',
+        body: `In accordance with the Information Technology Act, 2000 and the rules made thereunder, and the Digital Personal Data Protection Act, 2023, the Grievance Officer details are below:\n\nName: Grievance Officer, Kaam Ready Technologies\nEmail: grievance@kaamready.in\nPhone: 6362869636\nAddress: Bengaluru, Karnataka 560001\n\nWe acknowledge complaints within 24 hours and aim to resolve them within 15 days.`
+      },
+      {
+        heading: 'Customer Support',
+        body: `For general help, bookings, refunds or payment issues:\n\nEmail: support@kaamready.in\nPhone: 6362869636\nHours: Mon–Sun, 8 AM – 10 PM\n\nYou can also raise a ticket from Help & Support in the app.`
+      },
+      {
+        heading: 'Data Protection Requests',
+        body: `To access, correct, or delete your personal data, or to withdraw consent, email privacy@kaamready.in or use "Delete My Account" in your Profile. We process verified requests within statutory timelines.`
+      },
+    ]
+  },
+  about: {
+    title: 'About Us',
+    icon: '⚡',
+    lastUpdated: 'June 2025',
+    sections: [
+      {
+        heading: 'Who We Are',
+        body: `Kaam Ready is a home-services marketplace that connects customers across Karnataka with verified, skilled local workers — electricians, plumbers, cleaners, carpenters, painters, and more. We make it simple to find trusted help, fast.`
+      },
+      {
+        heading: 'Our Mission',
+        body: `To give every household quick access to reliable skilled workers, and to give hardworking professionals a fair, dignified way to earn — with transparent pricing and no middlemen taking unfair cuts.`
+      },
+      {
+        heading: 'How It Works',
+        body: `Pick your city, choose a service, and book in seconds. A verified worker accepts your request, completes the job, and you pay securely via UPI — no cash, full record. Every worker is KYC-verified before they can take jobs.`
+      },
+      {
+        heading: 'Why Kaam Ready',
+        body: `• Aadhaar-verified, rated workers\n• Transparent pricing set after the job\n• Secure UPI payments with dispute support\n• Workers keep the majority of every payment\n• Local teams across 15 Karnataka cities`
+      },
+      {
+        heading: 'Contact',
+        body: `Kaam Ready Technologies\nBengaluru, Karnataka, India\nEmail: support@kaamready.in\nPhone: 6362869636`
+      },
+    ]
+  },
 }
 
 export default function LegalScreen({ section = 'privacy', onBack }) {

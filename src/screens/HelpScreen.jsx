@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { sb } from '../lib/supabase'
 import Card from '../components/Card'
 import Btn  from '../components/Btn'
+import { loadSettings, SETTINGS_DEFAULTS } from '../lib/settings'
 
 const Y = '#F5C000', YD = '#B8900A', YL = '#FFF8D6', BK = '#1C1C1E', GREEN = '#22c55e'
 
@@ -40,6 +41,13 @@ export default function HelpScreen({ user, onBack, showToast }) {
   const [category, setCategory] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [cfg, setCfg] = useState(SETTINGS_DEFAULTS)
+
+  useEffect(() => { loadSettings().then(setCfg) }, [])
+
+  const supportTel  = (cfg.support_phone || '18005747435').replace(/\D/g, '')
+  const supportMail = cfg.support_email || 'support@kaamready.in'
+  const supportWa   = (cfg.support_whatsapp || '918012345678').replace(/\D/g, '')
 
   const CATEGORIES = [
     'Booking Issue', 'Payment Problem', 'Worker Complaint',
@@ -153,9 +161,9 @@ export default function HelpScreen({ user, onBack, showToast }) {
         <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden' }}>
           {[
             { ico: '🎫', label: 'Raise a Support Ticket', sub: 'Report a problem, we respond within 4 hours', action: () => setView('ticket'), highlight: true },
-            { ico: '📞', label: 'Call Us (Toll Free)', sub: '1800-KR-HELP · Mon–Sun 8 AM–10 PM', action: () => window.location.href = 'tel:18005747435' },
-            { ico: '💬', label: 'WhatsApp Support', sub: 'Chat with our team on WhatsApp', action: () => window.open('https://wa.me/918012345678?text=Hi+Kaam+Ready+Support', '_blank') },
-            { ico: '📧', label: 'Email Support', sub: 'support@kaamready.in', action: () => window.location.href = 'mailto:support@kaamready.in' },
+            { ico: '📞', label: 'Call Us', sub: 'Mon–Sun 8 AM–10 PM', action: () => window.location.href = 'tel:' + supportTel },
+            { ico: '💬', label: 'WhatsApp Support', sub: 'Chat with our team on WhatsApp', action: () => window.open('https://wa.me/' + supportWa + '?text=Hi+Kaam+Ready+Support', '_blank') },
+            { ico: '📧', label: 'Email Support', sub: supportMail, action: () => window.location.href = 'mailto:' + supportMail },
           ].map(({ ico, label, sub, action, highlight }) => (
             <button key={label} onClick={action}
               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
@@ -181,9 +189,9 @@ export default function HelpScreen({ user, onBack, showToast }) {
         <div style={{ background: '#FEE2E2', border: '1.5px solid #FCA5A5', borderRadius: 14, padding: 16, textAlign: 'center' }}>
           <p style={{ fontSize: 14, fontWeight: 800, color: '#991B1B', marginBottom: 4 }}>⚠️ Urgent Safety Issue?</p>
           <p style={{ fontSize: 12, color: '#555', marginBottom: 12 }}>If you feel unsafe or there is an emergency, call us immediately.</p>
-          <a href="tel:18005747435"
+          <a href={'tel:' + supportTel}
             style={{ display: 'inline-block', background: '#dc2626', color: '#fff', borderRadius: 10, padding: '10px 24px', fontWeight: 800, fontSize: 14, textDecoration: 'none' }}>
-            📞 Call Now (Toll Free)
+            📞 Call Now
           </a>
         </div>
 

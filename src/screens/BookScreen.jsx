@@ -4,6 +4,7 @@ import Card from '../components/Card'
 import Btn  from '../components/Btn'
 import MapView from '../components/MapView'
 import { serviceFloor } from '../constants'
+import { loadSettings, getSetting } from '../lib/settings'
 
 const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', GREEN='#22c55e'
 
@@ -18,10 +19,14 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
   const [booking,     setBooking]     = useState(null)
   const [rating,      setRating]      = useState(0)
   const [paying,      setPaying]      = useState(false)
+  const [utr,         setUtr]         = useState('')
   const [cancelModal, setCancelModal] = useState(false)
   const timer = useRef(null), chanRef = useRef(null), workerRef = useRef(null)
 
   useEffect(() => () => { clearTimeout(timer.current); if (chanRef.current) chanRef.current.unsubscribe() }, [])
+
+  // Load admin-controlled settings (UPI handle, etc.) once on mount
+  useEffect(() => { loadSettings() }, [])
 
   function subscribeBooking(id) {
     if (chanRef.current) chanRef.current.unsubscribe()
@@ -31,7 +36,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
         setBooking(prev => ({ ...(prev||{}), ...b }))
         if (b.status==='assigned' && b.worker_id && !workerRef.current) {
           clearTimeout(timer.current)
-          const { data: wData } = await sb.from('workers').select('*').eq('id', b.worker_id).single()
+          const { data: wData } = await sb.from('workers_public').select('*').eq('id', b.worker_id).single()
           const w = wData || b.worker || {}
           workerRef.current = w
           setWorker(w); setStep(2)
@@ -58,7 +63,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     ;(async () => {
       setBooking(resume)
       if (resume.worker_id) {
-        const { data: w } = await sb.from('workers').select('*').eq('id', resume.worker_id).single()
+        const { data: w } = await sb.from('workers_public').select('*').eq('id', resume.worker_id).single()
         if (cancelled) return
         if (w) { workerRef.current = w; setWorker(w) }
       }
@@ -120,7 +125,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
 
   function upiLink() {
     const amt = booking?.amount || 0
-    const pa  = 'kaamready@ybl'
+    const pa  = getSetting('upi_handle') || 'kaamready@ybl'
     const pn  = encodeURIComponent('KaamReady')
     const tn  = encodeURIComponent('KaamReady - '+(selSvc?.lbl||'Service')+' #'+((booking?.id||'').slice(0,8).toUpperCase()))
     return `upi://pay?pa=${encodeURIComponent(pa)}&pn=${pn}&am=${amt}&cu=INR&tn=${tn}`
@@ -132,16 +137,31 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
 
   async function markPaid() {
     if (!booking?.id || paying) return
+    const ref = utr.trim()
+    if (ref.length < 6) { showToast('Enter the UPI reference / UTR number from your payment app'); return }
     setPaying(true)
     const { error } = await sb.from('bookings').update({
       payment_status:'pending_verification',
       payment_method:'upi',
+      payment_id: ref,
       customer_paid_at:new Date().toISOString(),
     }).eq('id', booking.id)
     setPaying(false)
     if (error) { showToast(error.message); return }
     setStep(5)
     showToast('Payment submitted — admin will verify shortly ⏳')
+  }
+
+  // Customer asks the worker to revise the quotation. Sends the job back to
+  // 'assigned' (OTP stays verified) so the worker can re-enter the breakdown.
+  // The worker is notified via a DB trigger on the priced→assigned transition.
+  async function requestModification() {
+    if (!booking?.id) return
+    const { error } = await sb.from('bookings').update({ status:'assigned' }).eq('id', booking.id)
+    if (error) { showToast(error.message); return }
+    setBooking(prev => ({ ...(prev||{}), status:'assigned' }))
+    setStep(2)
+    showToast('Asked the worker to revise the price ✏️')
   }
 
   function resetAll() {
@@ -313,6 +333,17 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             <p style={{ fontSize:11, color:'#aaa', marginTop:4 }}>The worker will send the final price when the work is done. You approve it before paying via UPI.</p>
           </div>
         </Card>
+        {booking?.completion_otp && (
+          <Card style={{ border:'2px dashed '+Y, background:YL }}>
+            <p style={{ fontWeight:800, fontSize:14, marginBottom:4 }}>🔐 Your Completion Code</p>
+            <p style={{ fontSize:12, color:'#7a6000', marginBottom:10 }}>Share this code with the worker only when the job is finished. They need it to close the job and send the bill.</p>
+            <div style={{ display:'flex', justifyContent:'center', gap:10 }}>
+              {String(booking.completion_otp).padStart(4,'0').split('').map((d,i) => (
+                <span key={i} style={{ width:46, height:54, borderRadius:12, background:'#fff', border:'1.5px solid '+Y, display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, fontWeight:900, color:YD }}>{d}</span>
+              ))}
+            </div>
+          </Card>
+        )}
       </>}
 
       {step===3 && <>
@@ -337,19 +368,36 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
               <p style={{ fontSize:13, color:'#555' }}>{booking.price_note}</p>
             </div>
           )}
-          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-            <span style={{ fontSize:13, color:'#888' }}>Minimum charge</span>
-            <span style={{ fontSize:13, fontWeight:600, color:'#888' }}>₹{floor}</span>
-          </div>
+          {(booking?.labor_charge || booking?.material_cost || booking?.additional_charge) ? (
+            <div style={{ marginBottom:6, textAlign:'left' }}>
+              {[['Labour charge', booking?.labor_charge],['Material cost', booking?.material_cost],['Additional charges', booking?.additional_charge]].map(([lb,v]) => (v ? (
+                <div key={lb} style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                  <span style={{ fontSize:13, color:'#888' }}>{lb}</span>
+                  <span style={{ fontSize:13, fontWeight:600 }}>₹{v}</span>
+                </div>
+              ) : null))}
+            </div>
+          ) : (
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+              <span style={{ fontSize:13, color:'#888' }}>Minimum charge</span>
+              <span style={{ fontSize:13, fontWeight:600, color:'#888' }}>₹{floor}</span>
+            </div>
+          )}
           <div style={{ display:'flex', justifyContent:'space-between', paddingTop:10, borderTop:'2px solid #f0f0f0' }}>
             <span style={{ fontSize:16, fontWeight:800 }}>Total to pay</span>
             <span style={{ fontSize:26, fontWeight:800, color:YD }}>₹{booking?.amount}</span>
           </div>
         </Card>
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={requestModification}
+            style={{ flex:1, background:'#FEF3C7', color:'#92400E', border:'none', borderRadius:12, padding:12, fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>✏️ Request Change</button>
+          <a href={'tel:+91'+(worker?.phone||booking?.worker?.phone||'')}
+            style={{ flex:1, background:'#E0F2FE', color:'#0369A1', border:'none', borderRadius:12, padding:12, fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit', textAlign:'center', textDecoration:'none' }}>📞 Contact Worker</a>
+        </div>
         <Card>
           <p style={{ fontSize:12, fontWeight:700, color:'#555', marginBottom:6 }}>Pay to KaamReady UPI</p>
           <div style={{ background:'#f5f5f5', borderRadius:10, padding:'10px 14px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <span style={{ fontSize:13, color:'#333', fontWeight:700 }}>kaamready@ybl</span>
+            <span style={{ fontSize:13, color:'#333', fontWeight:700 }}>{getSetting('upi_handle') || 'kaamready@ybl'}</span>
             <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:6 }}>KaamReady Official</span>
           </div>
           <button onClick={openUpiApp}
@@ -359,6 +407,9 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           <p style={{ fontSize:11, color:'#aaa', textAlign:'center', marginBottom:12 }}>
             Opens GPay / PhonePe / Paytm with amount pre-filled
           </p>
+          <input value={utr} onChange={e => setUtr(e.target.value)}
+            placeholder="UPI reference / UTR number (required)"
+            style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:'12px 14px', fontSize:14, outline:'none', fontFamily:'inherit', marginBottom:10, boxSizing:'border-box' }} />
           <button onClick={markPaid} disabled={paying}
             style={{ width:'100%', background:'#1C1C1E', color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit', opacity:paying?0.6:1 }}>
             {paying ? 'Saving...' : 'I Paid ✓'}

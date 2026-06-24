@@ -20,7 +20,7 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
 
   async function rebook(b) {
     if (!b.worker_id) return
-    const { data: w } = await sb.from('workers').select('*').eq('id', b.worker_id).single()
+    const { data: w } = await sb.from('workers_public').select('*').eq('id', b.worker_id).single()
     if (!w) { showToast && showToast('Worker not found'); return }
     setRebookWorker(w)
     setSelSvc(SERVICES.find(s=>s.id===b.service_id) || { id:b.service_id, lbl:b.service, ico:'🔧', range:'' })

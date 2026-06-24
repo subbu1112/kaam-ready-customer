@@ -7,6 +7,7 @@ import HelpScreen from './HelpScreen'
 import AddressScreen from './AddressScreen'
 import LegalScreen from './LegalScreen'
 import { KA_CITIES } from '../constants'
+import { getLang, setLang, LANGS, t } from '../lib/i18n'
 
 const YL = '#FFF8D6', YD = '#B8900A', Y = '#F5C000', BK = '#1C1C1E'
 
@@ -76,6 +77,13 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
   const [contAddress,  setContAddress] = useState('')
   const [contSaving,   setContSaving]  = useState(false)
   const [deleting,     setDeleting]    = useState(false)
+  const [lang,         setLangState]   = useState(getLang())
+
+  function changeLang(code) {
+    setLang(code); setLangState(code)
+    showToast('Language updated')
+    setTimeout(() => window.location.reload(), 400)
+  }
 
   // Load profile data once
   useState(() => {
@@ -152,9 +160,15 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
     if (!user?.id) return
     if (!window.confirm('Delete your account? This cannot be undone. All your data will be permanently removed.')) return
     setDeleting(true)
+    // DPDP: log an auditable erasure request + 30-day scheduled hard delete
+    const scheduled = new Date(Date.now() + 30*24*60*60*1000).toISOString()
+    await sb.from('deletion_requests').insert({
+      user_id: user.id, role: 'customer', reason: 'user requested',
+      status: 'pending', scheduled_for: scheduled,
+    })
     await sb.from('profiles').update({ is_deleted: true, is_blocked: true }).eq('id', user.id)
     await sb.auth.signOut()
-    showToast('Account deleted. Goodbye.')
+    showToast('Account deletion requested. Your data will be erased.')
     setDeleting(false)
   }
 
@@ -165,10 +179,12 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
     { ico:'&#127968;', label:'Saved Addresses',     bg:'#FFF8D6', action:() => setSubscreen('addresses') },
     { ico:'&#128179;', label:'Payment Methods',     bg:'#F3F4F6', action:() => setModal('payment') },
     { ico:'&#10067;',  label:'Help & Support',      bg:'#FEF3C7', action:() => setSubscreen('help') },
+    { ico:'&#8505;', label:'About Us',           bg:'#FFF8D6', action:() => setSubscreen('legal-about') },
     { ico:'&#128274;', label:'Privacy Policy',      bg:'#F3F4F6', action:() => setSubscreen('legal-privacy') },
     { ico:'&#128220;', label:'Terms & Conditions',  bg:'#F3F4F6', action:() => setSubscreen('legal-terms') },
     { ico:'&#128176;', label:'Refund Policy',       bg:'#F3F4F6', action:() => setSubscreen('legal-refund') },
     { ico:'&#10060;',  label:'Cancellation Policy', bg:'#F3F4F6', action:() => setSubscreen('legal-cancel') },
+    { ico:'&#128231;', label:'Contact & Grievance',  bg:'#DBEAFE', action:() => setSubscreen('legal-contact') },
   ]
 
   // Contact Info sub-screen
@@ -200,7 +216,7 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
 
   // Main profile view
   return (
-    <div style={{ flex:1, overflowY:'auto', background:'#F2F2F7' }}>
+    <div style={{ flex:1, minHeight:0, overflowY:'auto', background:'#F2F2F7' }}>
       {/* Header */}
       <div style={{ background:BK, padding:'48px 20px 28px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
@@ -215,13 +231,29 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
 
       {/* Menu items */}
       <div style={{ padding:16, display:'flex', flexDirection:'column', gap:8 }}>
+
+        {/* Language selector */}
+        <div style={{ background:'#fff', borderRadius:16, padding:'14px 16px' }}>
+          <p style={{ fontWeight:700, fontSize:13, marginBottom:10 }}>🌐 {t('Language')}</p>
+          <div style={{ display:'flex', gap:8 }}>
+            {LANGS.map(L => (
+              <button key={L.code} onClick={() => changeLang(L.code)}
+                style={{ flex:1, padding:'10px 0', borderRadius:10, border:'1.5px solid '+(lang===L.code?Y:'#E5E5EA'),
+                  background:lang===L.code?YL:'#fff', color:lang===L.code?YD:'#888', fontWeight:700, fontSize:13,
+                  cursor:'pointer', fontFamily:'inherit' }}>
+                {L.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {menus.map(m => (
           <button key={m.label} onClick={m.action}
             style={{ background:'#fff', borderRadius:16, padding:'14px 16px', border:'none', cursor:'pointer',
               display:'flex', alignItems:'center', gap:14, width:'100%', fontFamily:'inherit' }}>
             <div style={{ width:40, height:40, borderRadius:12, background:m.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}
               dangerouslySetInnerHTML={{ __html: m.ico }} />
-            <span style={{ flex:1, fontWeight:600, fontSize:14, textAlign:'left' }}>{m.label}</span>
+            <span style={{ flex:1, fontWeight:600, fontSize:14, textAlign:'left' }}>{t(m.label)}</span>
             <span style={{ color:'#C7C7CC', fontSize:18 }}>›</span>
           </button>
         ))}
@@ -233,7 +265,7 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
           <div style={{ width:40, height:40, borderRadius:12, background:'#FEE2E2', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>
             🚪
           </div>
-          <span style={{ flex:1, fontWeight:600, fontSize:14, textAlign:'left', color:'#ef4444' }}>Sign Out</span>
+          <span style={{ flex:1, fontWeight:600, fontSize:14, textAlign:'left', color:'#ef4444' }}>{t('Sign Out')}</span>
         </button>
 
         {/* Delete Account — danger zone */}
@@ -242,7 +274,7 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
           <button onClick={deleteAccount} disabled={deleting}
             style={{ background:'#FEE2E2', borderRadius:12, padding:'11px 16px', border:'none',
               cursor:'pointer', fontFamily:'inherit', fontWeight:700, fontSize:13, color:'#991b1b', width:'100%', opacity:deleting?0.6:1 }}>
-            {deleting ? 'Deleting...' : '🗑️ Delete My Account'}
+            {deleting ? 'Deleting...' : '🗑️ ' + t('Delete My Account')}
           </button>
           <p style={{ fontSize:11, color:'#bbb', marginTop:8 }}>This permanently removes your account and all data. This cannot be undone.</p>
         </div>

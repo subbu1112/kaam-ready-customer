@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import LegalScreen from './LegalScreen'
 
 const Y = '#F5C000', YD = '#B8900A', YL = '#FFF8D6', BK = '#1C1C1E'
 
@@ -68,11 +69,40 @@ function FAQItem({ q, a }) {
 
 export default function LandingScreen({ setScreen }) {
   const [navOpen, setNavOpen] = useState(false)
+  const [legal,   setLegal]   = useState(null)        // null | 'privacy'|'terms'|'refund'|'cancel'
+  const [deferred, setDeferred] = useState(null)      // PWA install prompt event
+
+  useEffect(() => {
+    const onPrompt = e => { e.preventDefault(); setDeferred(e) }
+    const onInstalled = () => setDeferred(null)
+    window.addEventListener('beforeinstallprompt', onPrompt)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+
+  async function installApp() {
+    if (deferred) {
+      deferred.prompt()
+      try { await deferred.userChoice } catch {}
+      setDeferred(null)
+      return
+    }
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    alert(isIOS
+      ? 'To install: tap the Share button, then "Add to Home Screen".'
+      : 'To install: open your browser menu (⋮) and tap "Install app" / "Add to Home Screen".')
+  }
 
   function scrollTo(id) {
     setNavOpen(false)
     setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 50)
   }
+
+  // Legal pages (Privacy/Terms/Refund/Cancellation) — render inline from the landing page
+  if (legal) return <LegalScreen section={legal} onBack={() => setLegal(null)} />
 
   return (
     <div style={{ background: '#fff', maxWidth: 430, margin: '0 auto', width: '100%', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
@@ -113,6 +143,10 @@ export default function LandingScreen({ setScreen }) {
           <button onClick={() => scrollTo('how')}
             style={{ background: 'rgba(0,0,0,.12)', border: 'none', borderRadius: 14, padding: '14px 20px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
             How it works
+          </button>
+          <button onClick={installApp}
+            style={{ background: '#fff', border: '2px solid '+BK, borderRadius: 14, padding: '13px 22px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', color: BK }}>
+            📲 Install App
           </button>
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 28, flexWrap: 'wrap' }}>
@@ -197,7 +231,7 @@ export default function LandingScreen({ setScreen }) {
           ))}
         </div>
         <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
-          <a href="https://worker.kaamready.in" target="_blank" rel="noopener noreferrer"
+          <a href="https://worker.thekaamready.in" target="_blank" rel="noopener noreferrer"
             style={{ flex: 1, background: Y, border: 'none', borderRadius: 14, padding: 14, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center', textDecoration: 'none', color: BK }}>
             Join as Worker →
           </a>
@@ -241,12 +275,13 @@ export default function LandingScreen({ setScreen }) {
         <p style={{ color: '#555', fontSize: 12, marginBottom: 16 }}>Karnataka's trusted home services platform</p>
         <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
           {[
+            ['About Us', 'about'],
             ['Privacy Policy', 'privacy'],
             ['Terms & Conditions', 'terms'],
             ['Refund Policy', 'refund'],
             ['Cancellation Policy', 'cancel'],
           ].map(([label, section]) => (
-            <button key={label} onClick={() => setScreen('legal-' + section)}
+            <button key={label} onClick={() => setLegal(section)}
               style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>
               {label}
             </button>
