@@ -433,7 +433,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             style={{ width:'100%', background:'#1C1C1E', color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit', opacity:paying?0.6:1 }}>
             {paying ? 'Saving...' : 'I Paid ✓'}
           </button>
-          <p style={{ fontSize:11, color:'#bbb', textAlign:'center', marginTop:8 }}>Admin will verify your payment and credit the worker</p>
+          <p style={{ fontSize:11, color:'#bbb', textAlign:'center', marginTop:8 }}>KaamReady verifies your payment — usually within ~30 minutes (8 AM–10 PM) — then credits the worker. You'll be notified.</p>
         </Card>
       </>}
 
@@ -455,7 +455,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           <div style={{ fontSize:52, marginBottom:14 }}>⏳</div>
           <p style={{ fontWeight:800, fontSize:18 }}>Payment Under Verification</p>
           <p style={{ fontSize:13, color:'#888', margin:'8px 0 4px' }}>KaamReady admin is verifying your UPI payment of ₹{booking?.amount}.</p>
-          <p style={{ fontSize:12, color:'#bbb' }}>This usually takes a few minutes. You'll be notified when verified.</p>
+          <p style={{ fontSize:12, color:'#bbb' }}>This is usually verified within ~30 minutes (8 AM–10 PM). You'll be notified the moment it's done.</p>
           {bookingRef && <p style={{ fontSize:12, fontWeight:700, color:'#B8900A', marginTop:12 }}>Reference: {bookingRef}</p>}
         </Card>
       )}
