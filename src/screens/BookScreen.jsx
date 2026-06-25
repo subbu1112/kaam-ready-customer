@@ -21,39 +21,56 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
   const [paying,      setPaying]      = useState(false)
   const [utr,         setUtr]         = useState('')
   const [cancelModal, setCancelModal] = useState(false)
-  const timer = useRef(null), chanRef = useRef(null), workerRef = useRef(null)
+  const timer = useRef(null), chanRef = useRef(null), workerRef = useRef(null), pollRef = useRef(null)
 
-  useEffect(() => () => { clearTimeout(timer.current); if (chanRef.current) chanRef.current.unsubscribe() }, [])
+  useEffect(() => () => { clearTimeout(timer.current); if (pollRef.current) clearInterval(pollRef.current); if (chanRef.current) chanRef.current.unsubscribe() }, [])
 
   // Load admin-controlled settings (UPI handle, etc.) once on mount
   useEffect(() => { loadSettings() }, [])
 
+  function stopPoll() { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }
+
+  // Single source of truth for moving the customer to the right step based on the
+  // booking row. Idempotent + silent, so the realtime handler, the initial catch-up
+  // fetch, and the polling fallback can all call it without spamming toasts.
+  function syncBookingStep(b) {
+    if (!b) return
+    setBooking(prev => ({ ...(prev || {}), ...b }))
+    if (b.payment_status === 'verified') { clearTimeout(timer.current); stopPoll(); setStep(6); loadBookings?.(); return }
+    if (b.payment_status === 'pending_verification') { clearTimeout(timer.current); stopPoll(); setStep(5); return }
+    if (b.status === 'priced' && b.amount) { clearTimeout(timer.current); stopPoll(); setStep(3); return }
+    if ((b.status === 'assigned' || b.status === 'otp_verified') && b.worker_id) {
+      clearTimeout(timer.current)
+      if (!workerRef.current) {
+        sb.from('workers_public').select('*').eq('id', b.worker_id).single()
+          .then(({ data }) => { const w = data || b.worker || {}; workerRef.current = w; setWorker(w) })
+      }
+      setStep(2); return
+    }
+    if (b.status === 'cancelled') { stopPoll(); setStep(4) }
+  }
+
   function subscribeBooking(id) {
     if (chanRef.current) chanRef.current.unsubscribe()
+    const prevWorker = () => workerRef.current
     const ch = sb.channel('booking-'+id)
-      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'bookings', filter:'id=eq.'+id }, async payload => {
+      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'bookings', filter:'id=eq.'+id }, payload => {
         const b = payload.new
-        setBooking(prev => ({ ...(prev||{}), ...b }))
-        if (b.status==='assigned' && b.worker_id && !workerRef.current) {
-          clearTimeout(timer.current)
-          const { data: wData } = await sb.from('workers_public').select('*').eq('id', b.worker_id).single()
-          const w = wData || b.worker || {}
-          workerRef.current = w
-          setWorker(w); setStep(2)
-          showToast((w.name||'A worker')+' is on the way! 🎉')
-        }
-        if (b.status==='priced' && b.amount && !b.payment_status) {
-          setStep(3)
-          showToast('Work done — review and pay ₹'+b.amount)
-        }
-        // Admin verified the payment → job complete
-        if (b.payment_status==='verified') {
-          setStep(6)
-          showToast('Payment verified! Job complete ✓')
-          await loadBookings()
-        }
+        const wasUnassigned = !prevWorker()
+        syncBookingStep(b)
+        // One-time, friendly toasts on the key transitions (realtime only).
+        if (b.status==='assigned' && b.worker_id && wasUnassigned) showToast('A worker is on the way! 🎉')
+        else if (b.status==='priced' && b.amount && !b.payment_status) showToast('Work done — review and pay ₹'+b.amount)
+        else if (b.payment_status==='verified') showToast('Payment verified! Job complete ✓')
       }).subscribe()
     chanRef.current = ch
+    // Catch any change that happened before the channel went live (race), then poll
+    // every 5s as a safety net so the customer never gets stuck on "searching".
+    sb.from('bookings').select('*').eq('id', id).single().then(({ data }) => syncBookingStep(data))
+    stopPoll()
+    pollRef.current = setInterval(() => {
+      sb.from('bookings').select('*').eq('id', id).single().then(({ data }) => syncBookingStep(data))
+    }, 5000)
     return ch
   }
 
@@ -167,6 +184,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
 
   function resetAll() {
     clearTimeout(timer.current)
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
     if (chanRef.current) { chanRef.current.unsubscribe(); chanRef.current = null }
     workerRef.current = null
     setStep(0); setDesc(''); setAddr(''); setWorker(null); setBooking(null); setRating(0)
