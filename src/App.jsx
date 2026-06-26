@@ -129,7 +129,7 @@ export default function App() {
 
   const ctx = {
     user, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast,
-    setScreen, setTab, resume, clearResume: () => setResume(null),
+    setScreen, setTab, resume, setResume, clearResume: () => setResume(null),
     rebookWorker, setRebookWorker, clearRebook: () => setRebookWorker(null),
   }
 
