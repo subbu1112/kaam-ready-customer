@@ -1,14 +1,25 @@
 {
+  "id": "/",
+  "scope": "/",
   "name": "Kaam Ready",
   "short_name": "KaamReady",
-  "description": "Instant skilled workers across Karnataka",
+  "description": "Book verified electricians, plumbers, cleaners and more across Karnataka. Pay after the work via UPI.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0A0A",
   "theme_color": "#F5C000",
   "orientation": "portrait",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "categories": ["lifestyle", "business", "productivity"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Book a service", "short_name": "Book", "url": "/", "description": "Find and book a worker now" },
+    { "name": "My bookings", "short_name": "Bookings", "url": "/", "description": "View your bookings" }
   ]
 }

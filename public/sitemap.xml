@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://www.thekaamready.in/</loc><changefreq>weekly</changefreq></url>
-  <url><loc>https://www.thekaamready.in/privacy.html</loc></url>
-  <url><loc>https://www.thekaamready.in/terms.html</loc></url>
+  <url><loc>https://www.thekaamready.in/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://www.thekaamready.in/about</loc><priority>0.6</priority></url>
+  <url><loc>https://www.thekaamready.in/privacy</loc><priority>0.5</priority></url>
+  <url><loc>https://www.thekaamready.in/terms</loc><priority>0.5</priority></url>
+  <url><loc>https://www.thekaamready.in/refund</loc><priority>0.5</priority></url>
+  <url><loc>https://www.thekaamready.in/cancel</loc><priority>0.5</priority></url>
+  <url><loc>https://www.thekaamready.in/contact</loc><priority>0.5</priority></url>
+  <url><loc>https://www.thekaamready.in/delete-account</loc><priority>0.5</priority></url>
 </urlset>
