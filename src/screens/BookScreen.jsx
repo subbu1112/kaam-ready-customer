@@ -461,16 +461,24 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             style={{ flex:1, background:'#E0F2FE', color:'#0369A1', border:'none', borderRadius:12, padding:12, fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit', textAlign:'center', textDecoration:'none' }}>📞 Contact Worker</a>
         </div>
         <Card>
-          <button onClick={payWithRazorpay} disabled={paying}
-            style={{ width:'100%', background:Y, border:'none', borderRadius:12, padding:16, fontWeight:800, fontSize:16, cursor:'pointer', fontFamily:'inherit', opacity:paying?0.6:1 }}>
-            {paying ? 'Opening secure payment…' : `Pay ₹${booking?.amount} securely`}
+          <p style={{ fontSize:12, fontWeight:700, color:'#555', marginBottom:6 }}>Pay to KaamReady UPI</p>
+          <div style={{ background:'#f5f5f5', borderRadius:10, padding:'10px 14px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span style={{ fontSize:13, color:'#333', fontWeight:700 }}>{getSetting('upi_handle') || 'kaamready@ybl'}</span>
+            <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:6 }}>KaamReady Official</span>
+          </div>
+          <button onClick={openUpiApp}
+            style={{ width:'100%', background:Y, border:'none', borderRadius:12, padding:15, fontWeight:800, fontSize:15, cursor:'pointer', fontFamily:'inherit', marginBottom:8 }}>
+            Pay ₹{booking?.amount} via UPI 📲
           </button>
-          <p style={{ fontSize:12, color:'#888', textAlign:'center', margin:'10px 0 0' }}>
-            UPI · cards · netbanking, powered by Razorpay.
-          </p>
-          <p style={{ fontSize:11, color:'#bbb', textAlign:'center', marginTop:4 }}>
-            Payment is confirmed instantly — the worker is credited automatically once it succeeds.
-          </p>
+          <p style={{ fontSize:11, color:'#aaa', textAlign:'center', marginBottom:12 }}>Opens GPay / PhonePe / Paytm with amount pre-filled</p>
+          <input value={utr} onChange={e => setUtr(e.target.value)}
+            placeholder="UPI reference / UTR number (required)"
+            style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:'12px 14px', fontSize:14, outline:'none', fontFamily:'inherit', marginBottom:10, boxSizing:'border-box' }} />
+          <button onClick={markPaid} disabled={paying}
+            style={{ width:'100%', background:'#1C1C1E', color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit', opacity:paying?0.6:1 }}>
+            {paying ? 'Saving...' : 'I Paid ✓'}
+          </button>
+          <p style={{ fontSize:11, color:'#bbb', textAlign:'center', marginTop:8 }}>KaamReady verifies your payment — usually within ~30 minutes (8 AM–10 PM) — then credits the worker. You'll be notified.</p>
         </Card>
       </>}
 
