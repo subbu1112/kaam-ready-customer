@@ -170,6 +170,53 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     showToast('Payment submitted — admin will verify shortly ⏳')
   }
 
+  function loadRazorpay() {
+    return new Promise((resolve) => {
+      if (window.Razorpay) return resolve(true)
+      const s = document.createElement('script')
+      s.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      s.onload = () => resolve(true)
+      s.onerror = () => resolve(false)
+      document.body.appendChild(s)
+    })
+  }
+
+  // Razorpay UPI — auto-verified. Opens Checkout, then a Supabase Edge Function
+  // verifies the signature server-side and marks the booking paid + credits the
+  // worker. No manual admin step, no UTR typing.
+  async function payWithRazorpay() {
+    if (!booking?.id || paying) return
+    setPaying(true)
+    const ok = await loadRazorpay()
+    if (!ok) { setPaying(false); showToast('Could not load payment — check your connection'); return }
+    const { data: order, error } = await sb.functions.invoke('razorpay', { body: { action: 'create_order', booking_id: booking.id } })
+    if (error || order?.error || !order?.order_id) { setPaying(false); showToast(order?.error || 'Could not start payment'); return }
+    const rzp = new window.Razorpay({
+      key: order.key_id,
+      order_id: order.order_id,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'KaamReady',
+      description: order.service || 'Service payment',
+      theme: { color: '#F5C000' },
+      handler: async (resp) => {
+        const { data: v, error: ve } = await sb.functions.invoke('razorpay', { body: {
+          action: 'verify', booking_id: booking.id,
+          razorpay_order_id: resp.razorpay_order_id,
+          razorpay_payment_id: resp.razorpay_payment_id,
+          razorpay_signature: resp.razorpay_signature,
+        } })
+        setPaying(false)
+        if (ve || v?.error || !v?.verified) { showToast('Payment received — confirming…'); return }
+        showToast('Payment successful! ✓')
+        // syncBookingStep (realtime + poll) will advance to the "done" screen.
+      },
+      modal: { ondismiss: () => setPaying(false) },
+    })
+    rzp.on('payment.failed', () => { setPaying(false); showToast('Payment failed — please try again') })
+    rzp.open()
+  }
+
   // Customer asks the worker to revise the quotation. Sends the job back to
   // 'assigned' (OTP stays verified) so the worker can re-enter the breakdown.
   // The worker is notified via a DB trigger on the priced→assigned transition.
@@ -414,26 +461,16 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             style={{ flex:1, background:'#E0F2FE', color:'#0369A1', border:'none', borderRadius:12, padding:12, fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit', textAlign:'center', textDecoration:'none' }}>📞 Contact Worker</a>
         </div>
         <Card>
-          <p style={{ fontSize:12, fontWeight:700, color:'#555', marginBottom:6 }}>Pay to KaamReady UPI</p>
-          <div style={{ background:'#f5f5f5', borderRadius:10, padding:'10px 14px', marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <span style={{ fontSize:13, color:'#333', fontWeight:700 }}>{getSetting('upi_handle') || 'kaamready@ybl'}</span>
-            <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:6 }}>KaamReady Official</span>
-          </div>
-          <button onClick={openUpiApp}
-            style={{ width:'100%', background:Y, border:'none', borderRadius:12, padding:15, fontWeight:800, fontSize:15, cursor:'pointer', fontFamily:'inherit', marginBottom:8 }}>
-            Pay ₹{booking?.amount} via UPI 📲
+          <button onClick={payWithRazorpay} disabled={paying}
+            style={{ width:'100%', background:Y, border:'none', borderRadius:12, padding:16, fontWeight:800, fontSize:16, cursor:'pointer', fontFamily:'inherit', opacity:paying?0.6:1 }}>
+            {paying ? 'Opening secure payment…' : `Pay ₹${booking?.amount} securely`}
           </button>
-          <p style={{ fontSize:11, color:'#aaa', textAlign:'center', marginBottom:12 }}>
-            Opens GPay / PhonePe / Paytm with amount pre-filled
+          <p style={{ fontSize:12, color:'#888', textAlign:'center', margin:'10px 0 0' }}>
+            UPI · cards · netbanking, powered by Razorpay.
           </p>
-          <input value={utr} onChange={e => setUtr(e.target.value)}
-            placeholder="UPI reference / UTR number (required)"
-            style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:'12px 14px', fontSize:14, outline:'none', fontFamily:'inherit', marginBottom:10, boxSizing:'border-box' }} />
-          <button onClick={markPaid} disabled={paying}
-            style={{ width:'100%', background:'#1C1C1E', color:'#fff', border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit', opacity:paying?0.6:1 }}>
-            {paying ? 'Saving...' : 'I Paid ✓'}
-          </button>
-          <p style={{ fontSize:11, color:'#bbb', textAlign:'center', marginTop:8 }}>KaamReady verifies your payment — usually within ~30 minutes (8 AM–10 PM) — then credits the worker. You'll be notified.</p>
+          <p style={{ fontSize:11, color:'#bbb', textAlign:'center', marginTop:4 }}>
+            Payment is confirmed instantly — the worker is credited automatically once it succeeds.
+          </p>
         </Card>
       </>}
 
