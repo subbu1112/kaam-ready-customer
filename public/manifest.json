@@ -21,5 +21,10 @@
   "shortcuts": [
     { "name": "Book a service", "short_name": "Book", "url": "/", "description": "Find and book a worker now" },
     { "name": "My bookings", "short_name": "Bookings", "url": "/", "description": "View your bookings" }
+  ],
+  "screenshots": [
+    { "src": "/ss-home.png", "sizes": "1080x2348", "type": "image/png", "form_factor": "narrow", "label": "Book verified workers near you" },
+    { "src": "/ss-price.png", "sizes": "1080x2348", "type": "image/png", "form_factor": "narrow", "label": "Transparent price breakdown" },
+    { "src": "/ss-rate.png", "sizes": "1080x2348", "type": "image/png", "form_factor": "narrow", "label": "Rate every job" }
   ]
 }
