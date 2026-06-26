@@ -21,8 +21,19 @@ Sentry.init({
   tracesSampleRate: 1.0,
 })
 
+// Self-heal: unregister any previously-deployed custom service worker (/sw.js)
+// and clear its caches. A caching SW could break navigation for returning
+// visitors. OneSignal's own push worker is left untouched.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'))
+  navigator.serviceWorker.getRegistrations()
+    .then((regs) => regs.forEach((r) => {
+      const url = (r.active && r.active.scriptURL) || ''
+      if (url.endsWith('/sw.js')) r.unregister()
+    }))
+    .catch(() => {})
+  if (window.caches) {
+    caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('kr-') || k.startsWith('kaam-ready')) caches.delete(k) })).catch(() => {})
+  }
 }
 
 OneSignal.init({
