@@ -46,10 +46,21 @@ export default function App() {
 
   useEffect(() => {
     if (!user?.id) return
+    const uid = user.id
+    // Auto-cancel this user's abandoned 'searching' bookings. The in-app 3-min
+    // timer only runs while the app is open, so a search left open then closed
+    // would otherwise linger forever and hijack the home screen on next launch.
+    sb.from('bookings').update({ status: 'cancelled' })
+      .eq('user_id', uid).eq('status', 'searching')
+      .lt('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString())
+      .then(() => {})
+    // Only resume a genuinely active, RECENT job (worker on the way or awaiting
+    // payment) from the last 24h — never an old or abandoned booking.
     sb.from('bookings')
       .select('*')
-      .eq('user_id', user.id)
-      .in('status', ['searching', 'assigned', 'otp_verified', 'priced'])
+      .eq('user_id', uid)
+      .in('status', ['assigned', 'otp_verified', 'priced'])
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
       .then(({ data }) => {
