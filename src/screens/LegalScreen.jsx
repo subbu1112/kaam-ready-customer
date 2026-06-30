@@ -172,7 +172,7 @@ const LEGAL = {
     ],
     founders: [
       { name: 'Kuttala Reddy Sai', role: 'Founder & CEO', photo: '/founder.jpg' },
-      // Co-founder to be added here
+      { name: 'P Subramanyam', role: 'Co-Founder', photo: '/cofounder.jpg' },
     ]
   },
 }
