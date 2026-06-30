@@ -10,27 +10,59 @@ import './index.css'
 // dismisses the prompt or the feature isn't available. These are expected and
 // don't affect the app, so swallow them instead of letting them surface as
 // unhandled promise rejections (which were being reported to Sentry as crashes).
+// Some Android WebViews and privacy modes deny access to localStorage /
+// sessionStorage (throwing "Access is denied for this document"), and old tabs
+// can request chunk hashes that no longer exist after a deploy ("Failed to fetch
+// dynamically imported module"). Both are benign noise — treat them as such.
+const krBenign = (msg) => {
+  const m = String(msg || '').toLowerCase()
+  return (
+    m.includes('dynamically imported module') ||
+    m.includes('module script failed') ||
+    m.includes('access is denied for this document') ||
+    ((m.includes('localstorage') || m.includes('sessionstorage')) && m.includes('denied'))
+  )
+}
+
+// Reload exactly once to pick up the fresh build. Uses a URL flag (not storage)
+// so it still works — and can't loop — when storage access is blocked.
+const krReloadOnce = () => {
+  try {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('kr_r') === '1') return
+    url.searchParams.set('kr_r', '1')
+    window.location.replace(url.toString())
+  } catch { /* ignore */ }
+}
+
 window.addEventListener('unhandledrejection', (e) => {
   const msg = String((e.reason && (e.reason.message || e.reason)) || '')
-  if (msg === 'Rejected' || msg.toLowerCase().includes('serviceworker')) {
+  const m = msg.toLowerCase()
+  if (msg === 'Rejected' || m.includes('serviceworker')) { e.preventDefault(); return }
+  if (m.includes('dynamically imported module') || m.includes('module script failed')) {
     e.preventDefault()
+    krReloadOnce()
   }
 })
 
-// Auto-recover from stale lazy-loaded chunks after a new deploy: when an old
-// tab requests a chunk hash that no longer exists, reload ONCE to pick up the
-// fresh build instead of showing a broken/blank screen.
-window.addEventListener('vite:preloadError', () => {
-  if (!sessionStorage.getItem('kr_reloaded_stale')) {
-    sessionStorage.setItem('kr_reloaded_stale', '1')
-    window.location.reload()
-  }
+window.addEventListener('vite:preloadError', (e) => {
+  if (e && e.preventDefault) e.preventDefault()
+  krReloadOnce()
 })
 
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,
   integrations: [Sentry.browserTracingIntegration()],
   tracesSampleRate: 1.0,
+  beforeSend(event, hint) {
+    const raw = (hint && hint.originalException) || ''
+    const msg =
+      (raw && (raw.message || raw)) ||
+      (event.exception && event.exception.values && event.exception.values[0] && event.exception.values[0].value) ||
+      ''
+    if (krBenign(msg)) return null
+    return event
+  },
 })
 
 // Self-heal: unregister any previously-deployed custom service worker (/sw.js)
