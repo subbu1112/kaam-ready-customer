@@ -169,6 +169,10 @@ const LEGAL = {
         heading: 'Contact',
         body: `Kaam Ready Technologies\nBengaluru, Karnataka, India\nEmail: support@kaamready.in\nPhone: 6362869636`
       },
+    ],
+    founders: [
+      { name: 'Kuttala Reddy Sai', role: 'Founder & CEO', photo: '/founder.jpg' },
+      // Co-founder to be added here
     ]
   },
 }
@@ -197,6 +201,24 @@ export default function LegalScreen({ section = 'privacy', onBack }) {
             <p style={{ fontSize: 13, color: '#444', lineHeight: 1.7, whiteSpace: 'pre-line' }}>{sec.body}</p>
           </div>
         ))}
+
+        {/* Founders */}
+        {content.founders && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: 18 }}>
+            <h2 style={{ fontSize: 14, fontWeight: 800, color: BK, marginBottom: 16, textAlign: 'center' }}>Our Founders</h2>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, justifyContent: 'center' }}>
+              {content.founders.map((f, i) => (
+                <div key={i} style={{ textAlign: 'center', width: 150 }}>
+                  <img src={f.photo} alt={f.name}
+                    style={{ width: 150, height: 190, borderRadius: 16, objectFit: 'cover', objectPosition: 'top center', background: '#eee', display: 'block' }} />
+                  <p style={{ fontSize: 15, fontWeight: 800, color: BK, marginTop: 10 }}>{f.name}</p>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: YD, marginTop: 2 }}>{f.role}</p>
+                  {f.bio && <p style={{ fontSize: 12, color: '#666', marginTop: 6, lineHeight: 1.6 }}>{f.bio}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Contact footer */}
         <div style={{ background: Y + '33', border: '1.5px solid ' + Y, borderRadius: 14, padding: 16, textAlign: 'center' }}>
