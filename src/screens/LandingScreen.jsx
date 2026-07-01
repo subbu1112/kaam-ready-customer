@@ -251,8 +251,8 @@ export default function LandingScreen({ setScreen }) {
         <p style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>Our support team is available 8 AM – 10 PM, 7 days a week.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[
-            ['📞', 'Call Us', '1800-KR-HELP (toll free)', 'tel:18005747435'],
-            ['💬', 'WhatsApp', 'Chat with support', 'https://wa.me/918012345678'],
+            ['📞', 'Call Us', '+91 63628 69636', 'tel:+916362869636'],
+            ['💬', 'WhatsApp', 'Chat with support', 'https://wa.me/916362869636'],
             ['📧', 'Email', 'support@kaamready.in', 'mailto:support@kaamready.in'],
           ].map(([ico, title, sub, href]) => (
             <a key={title} href={href} target="_blank" rel="noopener noreferrer"

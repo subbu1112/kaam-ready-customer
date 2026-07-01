@@ -45,9 +45,9 @@ export default function HelpScreen({ user, onBack, showToast }) {
 
   useEffect(() => { loadSettings().then(setCfg) }, [])
 
-  const supportTel  = (cfg.support_phone || '18005747435').replace(/\D/g, '')
+  const supportTel  = '+916362869636'
   const supportMail = cfg.support_email || 'support@kaamready.in'
-  const supportWa   = (cfg.support_whatsapp || '918012345678').replace(/\D/g, '')
+  const supportWa   = '916362869636'
 
   const CATEGORIES = [
     'Booking Issue', 'Payment Problem', 'Worker Complaint',
