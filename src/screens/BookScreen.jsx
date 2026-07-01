@@ -104,6 +104,23 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     })
   }
 
+  // Fire a device notification + on-screen confirmation the moment a booking is
+  // placed. Client-side only (works while the app is open); if the customer
+  // hasn't granted notification permission we ask once, then fall back to the
+  // on-screen toast.
+  function notifyBooked(b) {
+    const title = 'Booking placed ✓'
+    const body = b?.status === 'scheduled'
+      ? `${b?.service || 'Service'} scheduled — we'll assign a worker soon.`
+      : `${b?.service || 'Service'} — finding a verified worker near you now.`
+    try {
+      if (typeof Notification === 'undefined') return
+      const show = () => { try { new Notification(title, { body, icon: '/icon-192.png', badge: '/icon-192.png' }) } catch (e) {} }
+      if (Notification.permission === 'granted') show()
+      else if (Notification.permission !== 'denied') Notification.requestPermission().then(p => { if (p === 'granted') show() })
+    } catch (e) {}
+  }
+
   async function findWorkers() {
     setStep(1)
     showToast('Finding workers nearby...')
@@ -124,14 +141,16 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     }).select().single()
     if (error) { showToast('Error: '+error.message); setStep(0); return }
     setBooking(data)
+    notifyBooked(data)
     if (scheduled) {
-      showToast('Booking scheduled ✓')
+      showToast('Booking scheduled ✓ — we\'ll assign a worker soon')
       await loadBookings()
       clearRebook && clearRebook()
       setStep(7)
       subscribeBooking(data.id)
       return
     }
+    showToast('Booking placed ✓ — finding a verified worker near you')
     subscribeBooking(data.id)
     clearRebook && clearRebook()
     timer.current = setTimeout(async () => {
