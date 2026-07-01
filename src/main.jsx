@@ -81,7 +81,7 @@ if ('serviceWorker' in navigator) {
 }
 
 OneSignal.init({
-  appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+  appId: import.meta.env.VITE_ONESIGNAL_APP_ID || '4695fddf-8063-4115-a666-f8e77ff67229',
   allowLocalhostAsSecureOrigin: true,
 }).catch(console.error)
 
