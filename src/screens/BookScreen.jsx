@@ -121,6 +121,20 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     } catch (e) {}
   }
 
+  // Server-side push to workers' devices (works even when their app is
+  // closed). Fire-and-forget: booking flow never blocks on this.
+  async function pushToWorkers(b) {
+    try {
+      const { data: { session } } = await sb.auth.getSession()
+      if (!session?.access_token || !b?.id) return
+      fetch('/api/notify-worker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({ booking_id: b.id }),
+      }).catch(() => {})
+    } catch (e) { /* non-blocking */ }
+  }
+
   async function findWorkers() {
     setStep(1)
     showToast('Finding workers nearby...')
@@ -142,6 +156,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     if (error) { showToast('Error: '+error.message); setStep(0); return }
     setBooking(data)
     notifyBooked(data)
+    pushToWorkers(data) // push notification to workers' devices via OneSignal
     if (scheduled) {
       showToast('Booking scheduled ✓ — we\'ll assign a worker soon')
       await loadBookings()
