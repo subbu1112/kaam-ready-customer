@@ -19,7 +19,7 @@
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ujwizsgiowsahoyajbkj.supabase.co'
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY
-const OS_APP_ID = process.env.ONESIGNAL_WORKER_APP_ID || '73690e24-f04e-4a04-b374-75943071f95c'
+const OS_APP_ID = process.env.ONESIGNAL_WORKER_APP_ID || '75b6ff8a-1d09-43d6-be4f-c97c42cfdd82'
 const OS_API_KEY = process.env.ONESIGNAL_WORKER_API_KEY
 const WORKER_APP_URL = process.env.WORKER_APP_URL || 'https://worker.thekaamready.in'
 
