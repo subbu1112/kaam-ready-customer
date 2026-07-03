@@ -22,7 +22,7 @@ function PaymentModal({ user, onClose, showToast }) {
     if (!upi.includes('@')) { showToast('Enter a valid UPI ID (e.g. name@upi)'); return }
     setSaving(true)
     const updated = [...saved.filter(u => u !== upi), upi]
-    localStorage.setItem('kr_payment_methods', JSON.stringify(updated))
+    try { localStorage.setItem('kr_payment_methods', JSON.stringify(updated)) } catch { /* storage blocked */ }
     setSaved(updated)
     setUpi('')
     showToast('UPI saved')
@@ -30,7 +30,7 @@ function PaymentModal({ user, onClose, showToast }) {
   }
   function remove(u) {
     const updated = saved.filter(x => x !== u)
-    localStorage.setItem('kr_payment_methods', JSON.stringify(updated))
+    try { localStorage.setItem('kr_payment_methods', JSON.stringify(updated)) } catch { /* storage blocked */ }
     setSaved(updated)
   }
 

@@ -423,7 +423,7 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
                   : <span style={{ background:'#FEF3C7', color:'#92400E', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:6 }}>KYC pending</span>}
               </div>
             </div>
-            <a href={'tel:+91'+worker.phone} style={{ width:40, height:40, borderRadius:12, background:GREEN, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, textDecoration:'none', flexShrink:0 }}>📞</a>
+            <a href={'tel:+91'+(worker?.phone || booking?.worker?.phone || '')} style={{ width:40, height:40, borderRadius:12, background:GREEN, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, textDecoration:'none', flexShrink:0 }}>📞</a>
           </div>
           <div style={{ background:'#f9f9f9', borderRadius:12, padding:'12px 14px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
