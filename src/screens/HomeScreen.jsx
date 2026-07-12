@@ -10,9 +10,12 @@ export default function HomeScreen({ city, selSvc, setSelSvc, setTab, bookings, 
   return (
     <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
       <div style={{ background:Y, borderRadius:16, padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <div>
-          <h1 style={{ fontSize:20, fontWeight:800 }}>Kaam Ready ⚡</h1>
-          <p style={{ fontSize:12, color:'rgba(0,0,0,.6)' }}>📍 {city||'Karnataka'}</p>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <img src="/icon-192.png" alt="Kaam Ready" style={{ width:36, height:36, borderRadius:9 }} />
+          <div>
+            <h1 style={{ fontSize:20, fontWeight:800 }}>Kaam Ready</h1>
+            <p style={{ fontSize:12, color:'rgba(0,0,0,.6)' }}>📍 {city||'Karnataka'}</p>
+          </div>
         </div>
         <button onClick={() => setTab('profile')}
           style={{ width:36, height:36, borderRadius:10, background:'rgba(0,0,0,.12)', border:'none', cursor:'pointer', fontSize:18 }}>👤</button>

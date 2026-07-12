@@ -121,7 +121,7 @@ export default function LoginScreen({ setScreen, showToast }) {
     <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#fff',
       maxWidth:430, margin:'0 auto', width:'100%', height:'100vh' }}>
       <div style={{ background:'#F5C000', padding:'40px 24px 28px', textAlign:'center' }}>
-        <div style={{ fontSize:56, marginBottom:10 }}>⚡</div>
+        <img src="/icon-192.png" alt="Kaam Ready" style={{ width:72, height:72, borderRadius:16, marginBottom:10, boxShadow:'0 4px 14px rgba(0,0,0,.2)' }} />
         <h1 style={{ fontSize:28, fontWeight:800 }}>Kaam Ready</h1>
         <p style={{ fontSize:13, color:'rgba(0,0,0,.6)', marginTop:4 }}>Instant skilled workers across Karnataka</p>
       </div>

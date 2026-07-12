@@ -5,7 +5,7 @@ export default function DeleteAccountPage() {
   return (
     <div style={{ minHeight:'100vh', background:'#fff', maxWidth:560, margin:'0 auto', padding:'0 0 48px', fontFamily:'system-ui,-apple-system,sans-serif' }}>
       <div style={{ background:Y, padding:'28px 24px' }}>
-        <div style={{ fontSize:34 }}>⚡</div>
+        <img src="/icon-192.png" alt="Kaam Ready" style={{ width:44, height:44, borderRadius:11 }} />
         <h1 style={{ fontSize:24, fontWeight:900, color:BK, marginTop:6 }}>Delete Your Kaam Ready Account</h1>
         <p style={{ fontSize:13, color:'rgba(0,0,0,.65)', marginTop:6 }}>Kaam Ready Technologies · Karnataka, India</p>
       </div>

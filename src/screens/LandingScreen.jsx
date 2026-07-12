@@ -111,7 +111,7 @@ export default function LandingScreen({ setScreen }) {
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(255,255,255,.95)', backdropFilter: 'blur(10px)',
         borderBottom: '1px solid #E5E5EA', padding: '0 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 56 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 22 }}>⚡</span>
+          <img src="/icon-192.png" alt="Kaam Ready" style={{ width: 28, height: 28, borderRadius: 7 }} />
           <span style={{ fontSize: 16, fontWeight: 800, color: BK }}>Kaam Ready</span>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -128,7 +128,7 @@ export default function LandingScreen({ setScreen }) {
 
       {/* ── Hero ── */}
       <div style={{ background: `linear-gradient(160deg, ${Y} 0%, #FFD940 100%)`, padding: '40px 20px 36px', textAlign: 'center' }}>
-        <div style={{ fontSize: 56, marginBottom: 12 }}>⚡</div>
+        <img src="/icon-192.png" alt="Kaam Ready" style={{ width: 76, height: 76, borderRadius: 18, marginBottom: 12, boxShadow: '0 6px 18px rgba(0,0,0,.18)' }} />
         <h1 style={{ fontSize: 28, fontWeight: 900, color: BK, lineHeight: 1.2, marginBottom: 10 }}>
           Skilled Workers<br />at Your Doorstep
         </h1>
@@ -270,7 +270,7 @@ export default function LandingScreen({ setScreen }) {
 
       {/* ── Footer ── */}
       <footer style={{ background: BK, padding: '24px 16px', textAlign: 'center' }}>
-        <div style={{ fontSize: 24, marginBottom: 8 }}>⚡</div>
+        <img src="/icon-192.png" alt="Kaam Ready" style={{ width: 40, height: 40, borderRadius: 10, marginBottom: 8 }} />
         <p style={{ color: Y, fontWeight: 800, fontSize: 16, marginBottom: 4 }}>Kaam Ready</p>
         <p style={{ color: '#555', fontSize: 12, marginBottom: 16 }}>Karnataka's trusted home services platform</p>
         <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
