@@ -1,0 +1,44 @@
+{
+  "packageId": "in.thekaamready.customer",
+  "host": "www.thekaamready.in",
+  "name": "Kaam Ready",
+  "launcherName": "Kaam Ready",
+  "display": "standalone",
+  "themeColor": "#F5C000",
+  "themeColorDark": "#0A0A0A",
+  "navigationColor": "#0A0A0A",
+  "navigationColorDark": "#0A0A0A",
+  "navigationDividerColor": "#00000000",
+  "navigationDividerColorDark": "#00000000",
+  "backgroundColor": "#0A0A0A",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://www.thekaamready.in/icon-512.png",
+  "maskableIconUrl": "https://www.thekaamready.in/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./signing.keystore",
+    "alias": "my-key-alias"
+  },
+  "appVersionCode": 10,
+  "appVersion": "1.0.1",
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://www.thekaamready.in/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://www.thekaamready.in/",
+  "minSdkVersion": 21,
+  "orientation": "any",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [
+    "https://thekaamready.in"
+  ],
+  "retainedBundles": []
+}
