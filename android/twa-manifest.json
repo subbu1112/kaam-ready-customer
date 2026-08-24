@@ -20,8 +20,8 @@
     "path": "./signing.keystore",
     "alias": "my-key-alias"
   },
-  "appVersionCode": 10,
-  "appVersion": "1.0.1",
+  "appVersionCode": 11,
+  "appVersion": "1.0.2",
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://www.thekaamready.in/manifest.json",
@@ -38,7 +38,7 @@
   "orientation": "any",
   "fingerprints": [],
   "additionalTrustedOrigins": [
-    "https://thekaamready.in"
+    "thekaamready.in"
   ],
   "retainedBundles": []
 }

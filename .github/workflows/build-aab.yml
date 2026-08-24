@@ -103,6 +103,15 @@ jobs:
             exit 1
           fi
           echo "OK: no orientation or large-screen restriction"
+          # A trusted origin written with a scheme yields "https://https://host" and an
+          # invalid android:host, which breaks Android App Links verification for ALL
+          # hosts in the app - the TWA then opens with a browser URL bar visible.
+          if grep -rq "https://https://" app/src/main/res/ app/src/main/AndroidManifest.xml; then
+            echo "::error::Malformed trusted origin (https://https://). Use a bare host in additionalTrustedOrigins."
+            grep -rn "https://https://" app/src/main/res/ app/src/main/AndroidManifest.xml
+            exit 1
+          fi
+          echo "OK: trusted origins well-formed"
 
       - name: Build and sign
         working-directory: android
