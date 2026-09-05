@@ -73,6 +73,7 @@ export default function ProfileScreen({ user, profile, city, setCity, bookings, 
   const [editingCity,  setEditingCity] = useState(false)
   const [contactEdit,  setContactEdit] = useState(false)
   const [myPhone,      setMyPhone]     = useState(profile?.phone || '')
+  const [phoneSaving,  setPhoneSaving]  = useState(false)
   const [contEmail,    setContEmail]   = useState('')
   const [contAltPhone, setContAltPhone]= useState('')
   const [contAddress,  setContAddress] = useState('')
@@ -144,6 +145,15 @@ export default function ProfileScreen({ user, profile, city, setCity, bookings, 
     )
   }
 
+  async function savePhone() {
+    if (myPhone.length !== 10) { showToast('Enter a valid 10-digit number'); return }
+    setPhoneSaving(true)
+    const { error } = await sb.rpc('save_my_phone', { p_phone: myPhone })
+    setPhoneSaving(false)
+    if (error) { showToast(error.message.replace(/^.*?:\s*/, '')); return }
+    showToast('Mobile number saved ✓')
+  }
+
   async function saveContact() {
     if (!user?.id) return
     setContSaving(true)
@@ -198,27 +208,27 @@ export default function ProfileScreen({ user, profile, city, setCity, bookings, 
             <p style={{ fontWeight:800, fontSize:17 }}>📞 Contact Info</p>
             <button onClick={() => setContactEdit(false)} style={{ background:'#f2f2f7', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>Back</button>
           </div>
-          {/* Verified mobile — read-only here; changing it needs a fresh OTP so
-              the number on file is always one the customer actually controls. */}
+          {/* Mobile number — edited and saved right here, no OTP. */}
           <div style={{ background:'#F9FAFB', border:'1px solid #E5E5EA', borderRadius:12, padding:'12px 14px', marginBottom:16 }}>
             <p style={{ fontSize:12, fontWeight:600, color:'#555', marginBottom:4 }}>Mobile Number</p>
-            {myPhone ? (
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
-                <span style={{ fontSize:15, fontWeight:700 }}>+91 {myPhone}</span>
-                <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:8 }}>✓ Verified</span>
-              </div>
-            ) : (
-              <>
-                <p style={{ fontSize:12, color:'#888', marginBottom:10 }}>
-                  Not added yet. Workers call this number when they're on the way.
-                </p>
-                <button onClick={() => setScreen && setScreen('phone')}
-                  style={{ width:'100%', background:Y, border:'none', borderRadius:12, padding:12,
-                    fontWeight:800, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>
-                  Add & verify mobile number
-                </button>
-              </>
-            )}
+            <p style={{ fontSize:11.5, color:'#888', marginBottom:10 }}>
+              Workers call this number when they're on the way.
+            </p>
+            <div style={{ display:'flex', gap:8 }}>
+              <div style={{ background:'#fff', border:'1.5px solid #E5E5EA', borderRadius:12,
+                padding:'12px 12px', fontWeight:700, fontSize:14, flexShrink:0 }}>+91</div>
+              <input value={myPhone}
+                onChange={e => setMyPhone(e.target.value.replace(/\D/g,'').slice(0,10))}
+                placeholder="98765 43210" type="tel" inputMode="numeric"
+                style={{ flex:1, minWidth:0, border:'1.5px solid #E5E5EA', borderRadius:12,
+                  padding:'12px 14px', fontSize:15, outline:'none', fontFamily:'inherit' }} />
+              <button onClick={savePhone} disabled={phoneSaving || myPhone.length !== 10}
+                style={{ flexShrink:0, background:Y, border:'none', borderRadius:12, padding:'0 18px',
+                  fontWeight:800, fontSize:14, cursor:'pointer', fontFamily:'inherit',
+                  opacity:(phoneSaving || myPhone.length !== 10) ? .5 : 1 }}>
+                {phoneSaving ? '…' : 'Save'}
+              </button>
+            </div>
           </div>
           {[
             ['Email Address', contEmail, setContEmail, 'you@gmail.com', 'email'],

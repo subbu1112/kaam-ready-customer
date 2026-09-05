@@ -46,12 +46,8 @@ export default function OTPScreen({ setScreen, showToast }) {
         type: 'email',
       })
       if (error) { showToast('Auth error: ' + error.message); return }
-
-      // Persist the verified number on the customer's profile. Phone login used
-      // to leave profiles.phone empty, which is why admin search-by-mobile and
-      // the worker's "call customer" button had nothing to work with.
-      try { await sb.rpc('save_my_phone', { p_phone: phone }) } catch { /* non-blocking */ }
-
+      // The verify-otp function itself writes the proven number onto the
+      // profile — the browser is never trusted to mark a number verified.
       sessionStorage.removeItem('kr_phone')
       // App.jsx will detect session change and route to home
     } catch {
