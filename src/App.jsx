@@ -4,6 +4,7 @@ import TabBar  from './components/TabBar'
 import Toast   from './components/Toast'
 import TermsModal, { termsAccepted, acceptTerms } from './components/TermsModal'
 import { SERVICES } from './constants'
+import { entryScreen } from './lib/installed'
 
 // ── Lazy-loaded screens (code splitting) ─────────────────────────────────────
 const LandingScreen  = lazy(() => import('./screens/LandingScreen'))
@@ -33,7 +34,7 @@ function PageLoader() {
 }
 
 export default function App() {
-  const [screen,   setScreen]   = useState('landing')
+  const [screen,   setScreen]   = useState(entryScreen)
   const [tab,      setTab]      = useState('home')
   const [user,     setUser]     = useState(null)
   const [city,     setCity]     = useState(null)
@@ -97,7 +98,7 @@ export default function App() {
         // Signed out (or no session) — always return to the landing page
         setUser(null)
         setTab('home')
-        setScreen('landing')
+        setScreen(entryScreen())
       }
     })
     return () => subscription.unsubscribe()

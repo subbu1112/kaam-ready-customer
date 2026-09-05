@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { sb } from '../lib/supabase'
+import { withinServiceArea, SERVICE_STATE } from '../lib/serviceArea'
 
 const Y = '#F5C000', YD = '#B8900A', GREEN = '#22c55e'
 
@@ -151,6 +152,13 @@ export default function LocationPicker({ user, city, value, onChange, onConfirm,
   function confirm() {
     if (!lat || !lng) { showToast?.('Set the service location on the map first'); return }
     if (!String(value?.address || '').trim()) { showToast?.('Add the address or building name'); return }
+    // We can only send a worker where we actually operate. Checked on the pin
+    // rather than on the visitor's IP, so someone travelling can still book
+    // for an address back home.
+    if (!withinServiceArea(lat, lng)) {
+      showToast?.(`We only serve ${SERVICE_STATE} at the moment — please pick a location inside ${SERVICE_STATE}.`)
+      return
+    }
     const next = { ...(value || {}), confirmed: true }
     onChange?.(next)
     onConfirm?.(next)
@@ -175,6 +183,15 @@ export default function LocationPicker({ user, city, value, onChange, onConfirm,
       <p style={{ fontSize:12, color:'#888', marginBottom:10 }}>
         This is where the worker will come — it can be different from your profile address.
       </p>
+      {lat && lng && !withinServiceArea(lat, lng) && (
+        <div style={{ background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:12,
+          padding:'11px 13px', marginBottom:12 }}>
+          <p style={{ fontSize:12.5, color:'#991B1B', lineHeight:1.6 }}>
+            📍 That pin is outside {SERVICE_STATE}. KaamReady currently serves {SERVICE_STATE} only —
+            we're expanding, and you can tell us where to go next at support@kaamready.in.
+          </p>
+        </div>
+      )}
 
       <button onClick={useCurrentLocation} disabled={locating}
         style={{ width:'100%', background:'#1C1C1E', color:'#fff', border:'none', borderRadius:12,

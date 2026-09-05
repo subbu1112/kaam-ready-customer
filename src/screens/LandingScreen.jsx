@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import LegalScreen from './LegalScreen'
+import ServiceAreaNotice from '../components/ServiceAreaNotice'
 
 const Y = '#F5C000', YD = '#B8900A', YL = '#FFF8D6', BK = '#1C1C1E'
 
@@ -106,6 +107,8 @@ export default function LandingScreen({ setScreen }) {
 
   return (
     <div style={{ background: '#fff', width: '100%', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+
+      <ServiceAreaNotice />
 
       {/* ── Sticky Nav ── */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(255,255,255,.95)', backdropFilter: 'blur(10px)',
