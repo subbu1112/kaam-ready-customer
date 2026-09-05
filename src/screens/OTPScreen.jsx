@@ -46,6 +46,12 @@ export default function OTPScreen({ setScreen, showToast }) {
         type: 'email',
       })
       if (error) { showToast('Auth error: ' + error.message); return }
+
+      // Persist the verified number on the customer's profile. Phone login used
+      // to leave profiles.phone empty, which is why admin search-by-mobile and
+      // the worker's "call customer" button had nothing to work with.
+      try { await sb.rpc('save_my_phone', { p_phone: phone }) } catch { /* non-blocking */ }
+
       sessionStorage.removeItem('kr_phone')
       // App.jsx will detect session change and route to home
     } catch {
@@ -79,7 +85,7 @@ export default function OTPScreen({ setScreen, showToast }) {
   }
 
   return (
-    <div style={{ height:'100vh', background:'#fff', maxWidth:430, margin:'0 auto', width:'100%', display:'flex', flexDirection:'column' }}>
+    <div style={{ minHeight:'100dvh', background:'#fff', maxWidth:430, margin:'0 auto', width:'100%', display:'flex', flexDirection:'column' }}>
       <div style={{ background:'#F5C000', padding:'16px 24px 20px' }}>
         <button onClick={() => setScreen('login')} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer' }}>←</button>
         <h2 style={{ fontWeight:800, fontSize:20, marginTop:8 }}>Enter OTP</h2>

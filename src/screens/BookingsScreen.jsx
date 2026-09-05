@@ -3,24 +3,11 @@ import { sb } from '../lib/supabase'
 import { SERVICES } from '../constants'
 import Card from '../components/Card'
 import Btn  from '../components/Btn'
+import { statusOf, isCancellable, staffingLabel } from '../lib/status'
+import { CUSTOMER_CANCEL_REASONS } from '../lib/cancelReasons'
 
-const Y='#F5C000', YD='#B8900A'
-const STATUS_STYLE = {
-  searching:            { bg:'#FFF8D6', c:'#B8900A', label:'🔍 Finding worker' },
-  scheduled:            { bg:'#EDE9FE', c:'#5B21B6', label:'📅 Scheduled' },
-  assigned:             { bg:'#DBEAFE', c:'#1E40AF', label:'👷 Worker on the way' },
-  otp_verified:         { bg:'#DBEAFE', c:'#1E40AF', label:'🔧 Work in progress' },
-  priced:               { bg:'#FEF3C7', c:'#92400E', label:'💳 Payment due' },
-  completed:            { bg:'#D1FAE5', c:'#065F46', label:'✓ Completed' },
-  cancelled:            { bg:'#FEE2E2', c:'#991B1B', label:'Cancelled' },
-}
-// payment_status overrides the badge while a payment is mid-flight
-const PAY_STYLE = {
-  pending_verification: { bg:'#E0F2FE', c:'#0369A1', label:'🔍 Verifying payment' },
-  verified:             { bg:'#D1FAE5', c:'#065F46', label:'✓ Paid' },
-  paid:                 { bg:'#D1FAE5', c:'#065F46', label:'✓ Paid' },
-}
-const ACTIVE = ['searching','assigned','otp_verified','priced']
+const Y='#F5C000', YD='#B8900A', YL='#FFF8D6'
+const ACTIVE = ['searching','scheduled','assigned','otp_verified','priced']
 const fmtDate = d => d ? new Date(d).toLocaleString('en-IN',{ day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : ''
 
 export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorker, setResume, showToast }) {
@@ -29,6 +16,10 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
   const [reportFor, setReportFor] = useState(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
+  const [cancelFor,  setCancelFor]  = useState(null)
+  const [cancelCode, setCancelCode] = useState('')
+  const [cancelNote, setCancelNote] = useState('')
+  const [cancelBusy, setCancelBusy] = useState(false)
 
   useEffect(() => { if (user?.id) load(user.id) }, [user?.id])
 
@@ -64,6 +55,25 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
     setRebookWorker(w)
     setSelSvc(SERVICES.find(s => s.id === b.service_id) || { id:b.service_id, lbl:b.service, ico:'🔧', range:'' })
     setTab('book')
+  }
+
+  async function submitCancel() {
+    if (cancelBusy || !cancelFor) return
+    if (!cancelCode) { showToast && showToast('Please select a reason'); return }
+    if (cancelCode === 'other' && !cancelNote.trim()) { showToast && showToast('Please tell us the reason'); return }
+    setCancelBusy(true)
+    const r = CUSTOMER_CANCEL_REASONS.find(x => x.code === cancelCode)
+    const { error } = await sb.rpc('cancel_booking_customer', {
+      p_booking_id: cancelFor.id,
+      p_reason_code: cancelCode,
+      p_reason_label: r?.label || cancelCode,
+      p_note: cancelNote.trim() || null,
+    })
+    setCancelBusy(false)
+    if (error) { showToast && showToast(error.message.replace(/^.*?:\s*/, '')); return }
+    setCancelFor(null); setCancelCode(''); setCancelNote('')
+    showToast && showToast('Booking cancelled ✓')
+    load(user.id)
   }
 
   async function submitReport() {
@@ -105,6 +115,49 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
         </div>
       )}
 
+      {cancelFor && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:999, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+          <div style={{ background:'#fff', borderRadius:'24px 24px 0 0', width:'100%', maxWidth:430, padding:'20px 20px 36px', maxHeight:'88vh', overflowY:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+              <p style={{ fontWeight:800, fontSize:17 }}>Cancel Booking</p>
+              <button onClick={() => { setCancelFor(null); setCancelCode(''); setCancelNote('') }}
+                style={{ background:'#f0f0f0', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit' }}>Close</button>
+            </div>
+            <p style={{ fontSize:12, color:'#888', marginBottom:14 }}>
+              {cancelFor.service} · #KR-{cancelFor.id.slice(0,8).toUpperCase()}
+              {cancelFor.worker_id ? ' · the worker will be notified' : ''}
+            </p>
+            <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:14 }}>
+              {CUSTOMER_CANCEL_REASONS.map(r => (
+                <button key={r.code} onClick={() => setCancelCode(r.code)}
+                  style={{ display:'flex', alignItems:'center', gap:10, textAlign:'left',
+                    background: cancelCode===r.code ? YL : '#fff',
+                    border:'1.5px solid '+(cancelCode===r.code ? Y : '#E5E5EA'),
+                    borderRadius:12, padding:'12px 14px', fontSize:14, fontWeight:600,
+                    cursor:'pointer', fontFamily:'inherit' }}>
+                  <span style={{ width:18, height:18, borderRadius:'50%', flexShrink:0,
+                    border:'2px solid '+(cancelCode===r.code ? YD : '#CFCFD4'),
+                    background: cancelCode===r.code ? YD : 'transparent' }} />
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            {cancelCode === 'other' && (
+              <textarea value={cancelNote} onChange={e => setCancelNote(e.target.value.slice(0,300))} rows={3} autoFocus
+                placeholder="Tell us what happened…"
+                style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:12, fontSize:14,
+                  outline:'none', fontFamily:'inherit', resize:'none', marginBottom:14, boxSizing:'border-box' }} />
+            )}
+            <button onClick={submitCancel} disabled={cancelBusy || !cancelCode}
+              style={{ width:'100%', background:'#dc2626', color:'#fff', border:'none', borderRadius:12, padding:14,
+                fontWeight:800, fontSize:14, cursor:'pointer', fontFamily:'inherit',
+                opacity:(cancelBusy || !cancelCode) ? .5 : 1 }}>
+              {cancelBusy ? 'Cancelling…' : 'Confirm Cancellation'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <Card style={{ textAlign:'center', padding:'40px 24px' }}>
           <div style={{ fontSize:32, marginBottom:10 }}>⏳</div>
@@ -118,9 +171,10 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
           <Btn label="Book Now →" onClick={() => setTab('home')} style={{ width:'auto', padding:'14px 28px' }} />
         </Card>
       ) : bookings.map(b => {
-        const st = (b.payment_status && PAY_STYLE[b.payment_status]) || STATUS_STYLE[b.status] || STATUS_STYLE.searching
+        const st = statusOf(b)
         const svc = SERVICES.find(s => s.lbl === b.service)
         const isActive = ACTIVE.includes(b.status) && b.payment_status !== 'verified'
+        const staffing = staffingLabel(b)
         const showOtp = (b.status === 'assigned' || b.status === 'otp_verified') && b.completion_otp && !b.payment_status
         const paid = b.payment_status === 'verified' || b.payment_status === 'paid'
         const ref = '#KR-' + b.id.slice(0,8).toUpperCase()
@@ -135,7 +189,7 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
                   <p style={{ fontSize:11, color:'#aaa', fontFamily:'monospace' }}>{ref}</p>
                 </div>
               </div>
-              <span style={{ background:st.bg, color:st.c, fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:8, whiteSpace:'nowrap' }}>{st.label}</span>
+              <span style={{ background:st.bg, color:st.fg, fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:8, whiteSpace:'nowrap' }}>{st.ico} {st.label}</span>
             </div>
 
             {/* Completion OTP — the customer shows this to the worker when the job is done */}
@@ -165,8 +219,15 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
             {/* Details */}
             <div style={{ borderTop:'1px solid #f5f5f5', paddingTop:8 }}>
               {row('Booked', fmtDate(b.created_at))}
-              {b.address && row('Address', b.address)}
+              {b.address && row('Service location', b.address)}
+              {b.landmark && row('Landmark', b.landmark)}
+              {staffing && row('Workers', staffing)}
               {b.description && row('Details', b.description)}
+              {b.cancellation_reason && row(
+                b.status === 'worker_cancelled' ? 'Worker cancelled' : 'Cancellation reason',
+                b.cancellation_reason)}
+              {b.cancellation_note && row('Note', b.cancellation_note)}
+              {b.cancelled_at && row('Cancelled on', fmtDate(b.cancelled_at))}
               {(b.labor_charge || b.material_cost || b.additional_charge) ? (
                 <>
                   {b.labor_charge ? row('Labour', '₹'+b.labor_charge) : null}
@@ -191,6 +252,13 @@ export default function BookingsScreen({ user, setTab, setSelSvc, setRebookWorke
                 <button onClick={() => resumeBooking(b)}
                   style={{ flex:2, background:Y, color:'#1a1a1a', border:'none', borderRadius:10, padding:'11px 0', fontWeight:800, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
                   {b.status === 'priced' ? `Pay ₹${b.amount} →` : 'Open / Track →'}
+                </button>
+              )}
+              {isCancellable(b) && (
+                <button onClick={() => { setCancelFor(b); setCancelCode(''); setCancelNote('') }}
+                  style={{ flex:1, background:'#fff', color:'#dc2626', border:'1.5px solid #dc2626', borderRadius:10,
+                    padding:'11px 0', fontWeight:700, fontSize:12.5, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>
+                  Cancel Booking
                 </button>
               )}
               {b.worker_id && b.status === 'completed' && (

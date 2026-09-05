@@ -9,6 +9,7 @@ import { SERVICES } from './constants'
 const LandingScreen  = lazy(() => import('./screens/LandingScreen'))
 const LoginScreen    = lazy(() => import('./screens/LoginScreen'))
 const OTPScreen      = lazy(() => import('./screens/OTPScreen'))
+const PhoneLinkScreen= lazy(() => import('./screens/PhoneLinkScreen'))
 const CityScreen     = lazy(() => import('./screens/CityScreen'))
 const HomeScreen     = lazy(() => import('./screens/HomeScreen'))
 const BookScreen     = lazy(() => import('./screens/BookScreen'))
@@ -43,6 +44,7 @@ export default function App() {
   const [resume,   setResume]   = useState(null)
   const [rebookWorker, setRebookWorker] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
+  const [profile,  setProfile]  = useState(null)
 
   useEffect(() => {
     if (!user?.id) return
@@ -50,8 +52,11 @@ export default function App() {
     // Auto-cancel this user's abandoned 'searching' bookings. The in-app 3-min
     // timer only runs while the app is open, so a search left open then closed
     // would otherwise linger forever and hijack the home screen on next launch.
-    sb.from('bookings').update({ status: 'cancelled' })
-      .eq('user_id', uid).eq('status', 'searching')
+    // Nobody accepted in time — that is 'expired', not 'cancelled'; a booking
+    // the customer never touched should not read as their cancellation.
+    // Partly-staffed multi-worker requests are left alone.
+    sb.from('bookings').update({ status: 'expired' })
+      .eq('user_id', uid).eq('status', 'searching').eq('workers_accepted', 0)
       .lt('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString())
       .then(() => {})
     // Only resume a genuinely active, RECENT job (worker on the way or awaiting
@@ -76,7 +81,7 @@ export default function App() {
     sb.auth.getSession().then(({ data }) => {
       if (data.session?.user) {
         setUser(data.session.user)
-        loadProfile(data.session.user.id)
+        loadProfile(data.session.user.id, data.session.user)
       } else {
         setAuthChecked(true)
       }
@@ -84,7 +89,7 @@ export default function App() {
     const { data: { subscription } } = sb.auth.onAuthStateChange((_e, session) => {
       if (session?.user) {
         setUser(session.user)
-        loadProfile(session.user.id)
+        loadProfile(session.user.id, session.user)
       } else {
         // Signed out (or no session) — always return to the landing page
         setUser(null)
@@ -107,11 +112,33 @@ export default function App() {
     } catch { /* non-blocking */ }
   }
 
-  async function loadProfile(uid) {
+  // Persist whatever the identity provider gave us (Google returns name, email
+  // and avatar; phone login returns the number) so the profile row is complete
+  // and admin/worker screens have something to show.
+  async function syncIdentity(authUser) {
+    const meta = authUser?.user_metadata || {}
+    const name = meta.full_name || meta.name || null
+    const email = authUser?.email && !authUser.email.endsWith('@kaamready.in') ? authUser.email : null
+    const patch = { id: authUser.id }
+    if (name)  { patch.name = name; patch.full_name = name }
+    if (email) patch.email = email
+    if (meta.avatar_url || meta.picture) patch.avatar_url = meta.avatar_url || meta.picture
+    if (Object.keys(patch).length === 1) return
+    try { await sb.from('profiles').upsert(patch, { onConflict: 'id' }) } catch { /* non-blocking */ }
+  }
+
+  async function loadProfile(uid, authUser) {
     logConsentOnce(uid)
-    const { data } = await sb.from('profiles').select('city').eq('id', uid).single()
-    if (data?.city) { setCity(data.city); setScreen('main') }
-    else setScreen('city')
+    if (authUser) await syncIdentity(authUser)
+    const { data } = await sb.from('profiles')
+      .select('city,phone,name,full_name,email,avatar_url').eq('id', uid).maybeSingle()
+    setProfile(data || null)
+    if (data?.city) setCity(data.city)
+
+    if (!data?.city)        setScreen('city')
+    else if (!data?.phone)  setScreen('phone')   // Google sign-in: no number yet
+    else                    setScreen('main')
+
     if (!termsAccepted()) setShowTerms(true)
     setAuthChecked(true)
   }
@@ -128,7 +155,7 @@ export default function App() {
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2600) }
 
   const ctx = {
-    user, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast,
+    user, profile, setProfile, city, setCity, selSvc, setSelSvc, bookings, loadBookings, showToast,
     setScreen, setTab, resume, setResume, clearResume: () => setResume(null),
     rebookWorker, setRebookWorker, clearRebook: () => setRebookWorker(null),
   }
@@ -153,12 +180,20 @@ export default function App() {
       {screen === 'login' && <><LoginScreen {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>}
       {screen === 'otp'   && <><OTPScreen   {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>}
       {screen === 'city'  && <><CityScreen  {...ctx} setScreen={setScreen} />{toast && <Toast msg={toast} />}</>}
+      {screen === 'phone' && (
+        <>
+          <PhoneLinkScreen
+            user={user}
+            showToast={showToast}
+            onDone={phone => {
+              if (phone) setProfile(p => ({ ...(p || {}), phone }))
+              setScreen('main')
+            }} />
+          {toast && <Toast msg={toast} />}
+        </>
+      )}
       {screen === 'main'  && (
-        <div style={{
-          height: '100dvh', display: 'flex', flexDirection: 'column',
-          background: '#F2F2F7', maxWidth: 430, margin: '0 auto',
-          overflow: 'hidden', position: 'relative',
-        }}>
+        <div className="kr-app-shell">
           {tab === 'home'     && <HomeScreen     {...ctx} setTab={setTab} />}
           {tab === 'search'   && <SearchScreen   {...ctx} setTab={setTab} />}
           {tab === 'book'     && <BookScreen     {...ctx} setTab={setTab} />}

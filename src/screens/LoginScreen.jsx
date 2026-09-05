@@ -5,16 +5,40 @@ import Card from '../components/Card'
 const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+const Y = '#F5C000'
+
+// Sign-in priority (product decision, do not reorder without asking):
+//   1. Continue with Google   — primary
+//   2. Continue with Phone    — secondary, OTP
+//   3. Email + password       — kept for the accounts that already use it
 export default function LoginScreen({ setScreen, showToast }) {
-  const [tab,       setTab]       = useState('phone')   // 'phone' | 'email'
+  const [mode,      setMode]      = useState('choose')  // choose | phone | email
   const [phone,     setPhone]     = useState('')
   const [email,     setEmail]     = useState('')
   const [pass,      setPass]      = useState('')
   const [isReg,     setIsReg]     = useState(false)
   const [busy,      setBusy]      = useState(false)
-  const [resetMode, setResetMode] = useState(false)     // forgot password
+  const [resetMode, setResetMode] = useState(false)
   const [resetSent, setResetSent] = useState(false)
-  const [legalShow, setLegalShow] = useState(null)      // 'terms' | 'privacy'
+  const [legalShow, setLegalShow] = useState(null)
+
+  async function googleAuth() {
+    setBusy(true)
+    try {
+      const { sb } = await import('../lib/supabase')
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          // Always let the customer pick which Google account to use, instead
+          // of silently reusing whichever one the browser last signed in with.
+          queryParams: { prompt: 'select_account' },
+        },
+      })
+      if (error) showToast(error.message)
+    } catch (e) { showToast('Error: ' + e.message) }
+    finally { setBusy(false) }
+  }
 
   async function sendOTP() {
     if (phone.length < 10) { showToast('Enter a valid 10-digit number'); return }
@@ -51,19 +75,6 @@ export default function LoginScreen({ setScreen, showToast }) {
     finally { setBusy(false) }
   }
 
-  async function googleAuth() {
-    setBusy(true)
-    try {
-      const { sb } = await import('../lib/supabase')
-      const { error } = await sb.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin },
-      })
-      if (error) showToast(error.message)
-    } catch (e) { showToast('Error: ' + e.message) }
-    finally { setBusy(false) }
-  }
-
   async function sendReset() {
     if (!email.includes('@')) { showToast('Enter your email address'); return }
     setBusy(true)
@@ -78,13 +89,12 @@ export default function LoginScreen({ setScreen, showToast }) {
     finally { setBusy(false) }
   }
 
-  // Legal modal (inline bottom-sheet)
   if (legalShow) {
     const isPrivacy = legalShow === 'privacy'
     return (
       <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#fff',
-        maxWidth:430, margin:'0 auto', width:'100%', height:'100vh' }}>
-        <div style={{ background:'#F5C000', padding:'20px 24px 16px', display:'flex', alignItems:'center', gap:12 }}>
+        maxWidth:430, margin:'0 auto', width:'100%', minHeight:'100dvh' }}>
+        <div style={{ background:Y, padding:'20px 24px 16px', display:'flex', alignItems:'center', gap:12 }}>
           <button onClick={() => setLegalShow(null)} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer' }}>←</button>
           <h2 style={{ fontWeight:800, fontSize:18 }}>{isPrivacy ? 'Privacy Policy' : 'Terms of Service'}</h2>
         </div>
@@ -93,9 +103,9 @@ export default function LoginScreen({ setScreen, showToast }) {
             <>
               <p><strong>Last updated: June 2025</strong></p>
               <p style={{marginTop:12}}>KaamReady ("we", "us") is committed to protecting your privacy. This policy explains what data we collect and how we use it.</p>
-              <p style={{marginTop:12}}><strong>Data we collect:</strong> Phone number, name, city, booking history, and device location (only during active bookings).</p>
+              <p style={{marginTop:12}}><strong>Data we collect:</strong> Your name and email (when you sign in with Google), phone number, city, the service location you confirm for each booking, booking history, and device location (only during active bookings).</p>
               <p style={{marginTop:12}}><strong>How we use it:</strong> To connect you with local service workers, process payments, and improve the service.</p>
-              <p style={{marginTop:12}}><strong>Data sharing:</strong> We share your first name and contact with the assigned worker only. We never sell your data.</p>
+              <p style={{marginTop:12}}><strong>Data sharing:</strong> We share your first name, contact and confirmed service location with the assigned worker only. We never sell your data.</p>
               <p style={{marginTop:12}}><strong>Storage:</strong> Data is stored securely on Supabase (hosted in Singapore). OTPs are deleted after use.</p>
               <p style={{marginTop:12}}><strong>Deletion:</strong> You can delete your account from the Profile screen at any time.</p>
               <p style={{marginTop:12}}><strong>Contact:</strong> support@kaamready.in · 6362869636</p>
@@ -107,7 +117,7 @@ export default function LoginScreen({ setScreen, showToast }) {
               <p style={{marginTop:12}}><strong>Service:</strong> KaamReady is a platform that connects customers with independent skilled workers in Karnataka. We do not directly employ workers.</p>
               <p style={{marginTop:12}}><strong>Payments:</strong> All payments are made directly to KaamReady's UPI ID. Workers receive 90% after platform fee deduction. Admin verifies each payment.</p>
               <p style={{marginTop:12}}><strong>Liability:</strong> KaamReady is not liable for workmanship disputes. Please contact support within 24 hours if you have a concern.</p>
-              <p style={{marginTop:12}}><strong>Cancellation:</strong> You may cancel a booking before a worker has started work. Post-assignment cancellations may incur a convenience fee.</p>
+              <p style={{marginTop:12}}><strong>Cancellation:</strong> You may cancel a booking from the booking screen, including after it is confirmed, by selecting a cancellation reason. Cancellations after a worker has started work may incur a convenience fee.</p>
               <p style={{marginTop:12}}><strong>Prohibited use:</strong> You may not use this platform for illegal activities or attempt to circumvent payment systems.</p>
               <p style={{marginTop:12}}><strong>Contact:</strong> support@kaamready.in · 6362869636</p>
             </>
@@ -117,121 +127,155 @@ export default function LoginScreen({ setScreen, showToast }) {
     )
   }
 
+  const legalNote = (
+    <p style={{ textAlign:'center', fontSize:12, color:'#bbb', marginTop:'auto', paddingTop:16 }}>
+      By continuing you agree to our{' '}
+      <span onClick={() => setLegalShow('terms')} style={{ color:'#B8900A', cursor:'pointer', textDecoration:'underline' }}>Terms of Service</span>
+      {' & '}
+      <span onClick={() => setLegalShow('privacy')} style={{ color:'#B8900A', cursor:'pointer', textDecoration:'underline' }}>Privacy Policy</span>
+    </p>
+  )
+
   return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#fff',
-      maxWidth:430, margin:'0 auto', width:'100%', height:'100vh' }}>
-      <div style={{ background:'#F5C000', padding:'40px 24px 28px', textAlign:'center' }}>
+      maxWidth:430, margin:'0 auto', width:'100%', minHeight:'100dvh' }}>
+      <div style={{ background:Y, padding:'40px 24px 28px', textAlign:'center' }}>
         <img src="/icon-192.png" alt="Kaam Ready" style={{ width:72, height:72, borderRadius:16, marginBottom:10, boxShadow:'0 4px 14px rgba(0,0,0,.2)' }} />
         <h1 style={{ fontSize:28, fontWeight:800 }}>Kaam Ready</h1>
         <p style={{ fontSize:13, color:'rgba(0,0,0,.6)', marginTop:4 }}>Instant skilled workers across Karnataka</p>
       </div>
 
-      {/* Tab switcher */}
-      <div style={{ display:'flex', margin:'20px 24px 0', background:'#f2f2f7', borderRadius:12, padding:4, gap:4 }}>
-        {[['phone','📱 Phone OTP'],['email','✉️ Email']].map(([t,l]) => (
-          <button key={t} onClick={() => { setTab(t); setResetMode(false); setResetSent(false) }}
-            style={{ flex:1, padding:'10px 0', borderRadius:9, border:'none', fontWeight:700, fontSize:13,
-              background:tab===t?'#fff':'transparent', color:tab===t?'#000':'#888',
-              boxShadow:tab===t?'0 1px 4px rgba(0,0,0,.1)':'none', cursor:'pointer', fontFamily:'inherit' }}>
-            {l}
-          </button>
-        ))}
-      </div>
+      <div style={{ padding:24, display:'flex', flexDirection:'column', gap:12, flex:1 }}>
 
-      <div style={{ padding:24, display:'flex', flexDirection:'column', gap:14, flex:1 }}>
-        {tab === 'phone' ? (
-          <Card>
-            <p style={{ fontWeight:800, fontSize:16, marginBottom:4 }}>Sign in with Phone</p>
-            <p style={{ fontSize:13, color:'#888', marginBottom:16 }}>We'll send a 6-digit OTP to your number</p>
-            <div style={{ display:'flex', gap:8, marginBottom:14 }}>
-              <div style={{ background:'#f5f5f5', borderRadius:12, padding:'13px 14px', fontWeight:700, fontSize:14 }}>🇮🇳 +91</div>
-              <input value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g,'').slice(0,10))}
-                placeholder="98765 43210" type="tel"
-                style={{ flex:1, border:'1.5px solid #E5E5EA', borderRadius:12, padding:'13px 14px',
-                  fontSize:14, outline:'none', fontFamily:'inherit' }} />
-            </div>
-            <Btn label={busy?'Sending...':'Send OTP →'} onClick={sendOTP} disabled={busy} />
-          </Card>
-        ) : resetMode ? (
-          <Card>
-            {resetSent ? (
-              <>
-                <div style={{ textAlign:'center', padding:'8px 0 16px' }}>
-                  <div style={{ fontSize:44, marginBottom:12 }}>📧</div>
-                  <p style={{ fontWeight:800, fontSize:16 }}>Reset link sent!</p>
-                  <p style={{ fontSize:13, color:'#888', marginTop:6 }}>Check your email and follow the link to reset your password.</p>
-                </div>
-                <Btn label="Back to Sign In" onClick={() => { setResetMode(false); setResetSent(false) }} />
-              </>
+        {/* ── 1 & 2: the two primary ways in ───────────────────────────── */}
+        {mode === 'choose' && (
+          <>
+            <p style={{ fontWeight:800, fontSize:18, marginBottom:2 }}>Sign in or create an account</p>
+            <p style={{ fontSize:13, color:'#888', marginBottom:8 }}>Takes a few seconds — no forms to fill.</p>
+
+            <button onClick={googleAuth} disabled={busy}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12, width:'100%',
+                background:'#fff', border:'2px solid #1a1a1a', borderRadius:14, padding:'16px 14px',
+                fontSize:15, fontWeight:800, cursor:'pointer', fontFamily:'inherit', opacity:busy?.6:1 }}>
+              <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+                <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.2-.1-2.3-.4-3.5z"/>
+                <path fill="#FF3D00" d="M3.3 12.7l6.6 4.8C11.5 14 17.3 10 24 10c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 15.3 2 7.8 6.9 3.3 12.7z"/>
+                <path fill="#4CAF50" d="M24 46c5.5 0 10.4-2.1 14.1-5.5l-6.5-5.5C29.6 36.8 26.9 38 24 38c-5.2 0-9.6-3.3-11.2-8l-6.6 5C9.7 41 16.3 46 24 46z"/>
+                <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6.5 5.5C40.9 36.3 45 31 45 24c0-1.2-.1-2.3-.4-3.5z"/>
+              </svg>
+              Continue with Google
+            </button>
+
+            <button onClick={() => setMode('phone')} disabled={busy}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12, width:'100%',
+                background:'#fff', border:'1.5px solid #E5E5EA', borderRadius:14, padding:'16px 14px',
+                fontSize:15, fontWeight:800, cursor:'pointer', fontFamily:'inherit' }}>
+              <span style={{ fontSize:18 }}>📱</span>
+              Continue with Phone Number
+            </button>
+
+            <button onClick={() => setMode('email')}
+              style={{ background:'none', border:'none', color:'#999', fontSize:13, cursor:'pointer',
+                fontFamily:'inherit', marginTop:4, textDecoration:'underline' }}>
+              Use email and password instead
+            </button>
+            {legalNote}
+          </>
+        )}
+
+        {/* ── Phone OTP ─────────────────────────────────────────────────── */}
+        {mode === 'phone' && (
+          <>
+            <button onClick={() => setMode('choose')}
+              style={{ alignSelf:'flex-start', background:'none', border:'none', fontSize:14, color:'#888', cursor:'pointer', fontFamily:'inherit', padding:0 }}>
+              ← Back
+            </button>
+            <Card>
+              <p style={{ fontWeight:800, fontSize:16, marginBottom:4 }}>Continue with Phone Number</p>
+              <p style={{ fontSize:13, color:'#888', marginBottom:16 }}>We'll send a 6-digit OTP to your number</p>
+              <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+                <div style={{ background:'#f5f5f5', borderRadius:12, padding:'13px 14px', fontWeight:700, fontSize:14 }}>🇮🇳 +91</div>
+                <input value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g,'').slice(0,10))}
+                  placeholder="98765 43210" type="tel" autoFocus
+                  style={{ flex:1, border:'1.5px solid #E5E5EA', borderRadius:12, padding:'13px 14px',
+                    fontSize:14, outline:'none', fontFamily:'inherit', minWidth:0 }} />
+              </div>
+              <Btn label={busy?'Sending...':'Send OTP →'} onClick={sendOTP} disabled={busy} />
+            </Card>
+            <button onClick={googleAuth} disabled={busy}
+              style={{ background:'none', border:'none', color:'#999', fontSize:13, cursor:'pointer', fontFamily:'inherit', textDecoration:'underline' }}>
+              Continue with Google instead
+            </button>
+            {legalNote}
+          </>
+        )}
+
+        {/* ── Email + password (existing accounts) ──────────────────────── */}
+        {mode === 'email' && (
+          <>
+            <button onClick={() => { setMode('choose'); setResetMode(false); setResetSent(false) }}
+              style={{ alignSelf:'flex-start', background:'none', border:'none', fontSize:14, color:'#888', cursor:'pointer', fontFamily:'inherit', padding:0 }}>
+              ← Back
+            </button>
+            {resetMode ? (
+              <Card>
+                {resetSent ? (
+                  <>
+                    <div style={{ textAlign:'center', padding:'8px 0 16px' }}>
+                      <div style={{ fontSize:44, marginBottom:12 }}>📧</div>
+                      <p style={{ fontWeight:800, fontSize:16 }}>Reset link sent!</p>
+                      <p style={{ fontSize:13, color:'#888', marginTop:6 }}>Check your email and follow the link to reset your password.</p>
+                    </div>
+                    <Btn label="Back to Sign In" onClick={() => { setResetMode(false); setResetSent(false) }} />
+                  </>
+                ) : (
+                  <>
+                    <p style={{ fontWeight:800, fontSize:16, marginBottom:4 }}>Forgot Password</p>
+                    <p style={{ fontSize:13, color:'#888', marginBottom:16 }}>Enter your email to receive a reset link</p>
+                    <input value={email} onChange={e => setEmail(e.target.value)}
+                      placeholder="you@example.com" type="email"
+                      style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:'13px 14px',
+                        fontSize:14, outline:'none', fontFamily:'inherit', marginBottom:14, boxSizing:'border-box' }} />
+                    <Btn label={busy?'Sending...':'Send Reset Link →'} onClick={sendReset} disabled={busy} />
+                    <button onClick={() => setResetMode(false)}
+                      style={{ display:'block', width:'100%', marginTop:10, background:'none', border:'none', color:'#888', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+                      Back to Sign In
+                    </button>
+                  </>
+                )}
+              </Card>
             ) : (
-              <>
-                <p style={{ fontWeight:800, fontSize:16, marginBottom:4 }}>Forgot Password</p>
-                <p style={{ fontSize:13, color:'#888', marginBottom:16 }}>Enter your email to receive a reset link</p>
+              <Card>
+                <div style={{ display:'flex', marginBottom:16 }}>
+                  {[['Sign In', false],['Sign Up', true]].map(([l,r]) => (
+                    <button key={l} onClick={() => setIsReg(r)}
+                      style={{ flex:1, padding:'8px 0', border:'none', borderBottom:'2px solid '+(isReg===r?Y:'#eee'),
+                        background:'none', fontWeight:700, fontSize:13, color:isReg===r?'#000':'#aaa', cursor:'pointer', fontFamily:'inherit' }}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
                 <input value={email} onChange={e => setEmail(e.target.value)}
                   placeholder="you@example.com" type="email"
                   style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:'13px 14px',
+                    fontSize:14, outline:'none', fontFamily:'inherit', marginBottom:10, boxSizing:'border-box' }} />
+                <input value={pass} onChange={e => setPass(e.target.value)}
+                  placeholder="Password (min 6 chars)" type="password"
+                  style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:'13px 14px',
                     fontSize:14, outline:'none', fontFamily:'inherit', marginBottom:14, boxSizing:'border-box' }} />
-                <Btn label={busy?'Sending...':'Send Reset Link →'} onClick={sendReset} disabled={busy} />
-                <button onClick={() => setResetMode(false)}
-                  style={{ display:'block', width:'100%', marginTop:10, background:'none', border:'none', color:'#888', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
-                  Back to Sign In
-                </button>
-              </>
+                <Btn label={busy?(isReg?'Creating...':'Signing in...'):(isReg?'Create Account →':'Sign In →')}
+                  onClick={emailAuth} disabled={busy} />
+                {!isReg && (
+                  <button onClick={() => setResetMode(true)}
+                    style={{ display:'block', width:'100%', marginTop:10, background:'none', border:'none', color:'#888', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+                    Forgot password?
+                  </button>
+                )}
+              </Card>
             )}
-          </Card>
-        ) : (
-          <Card>
-            <div style={{ display:'flex', marginBottom:16 }}>
-              {[['Sign In', false],['Sign Up', true]].map(([l,r]) => (
-                <button key={l} onClick={() => setIsReg(r)}
-                  style={{ flex:1, padding:'8px 0', border:'none', borderBottom:'2px solid '+(isReg===r?'#F5C000':'#eee'),
-                    background:'none', fontWeight:700, fontSize:13, color:isReg===r?'#000':'#aaa', cursor:'pointer', fontFamily:'inherit' }}>
-                  {l}
-                </button>
-              ))}
-            </div>
-            <input value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@example.com" type="email"
-              style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:'13px 14px',
-                fontSize:14, outline:'none', fontFamily:'inherit', marginBottom:10, boxSizing:'border-box' }} />
-            <input value={pass} onChange={e => setPass(e.target.value)}
-              placeholder="Password (min 6 chars)" type="password"
-              style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:'13px 14px',
-                fontSize:14, outline:'none', fontFamily:'inherit', marginBottom:14, boxSizing:'border-box' }} />
-            <Btn label={busy?(isReg?'Creating...':'Signing in...'):(isReg?'Create Account →':'Sign In →')}
-              onClick={emailAuth} disabled={busy} />
-            {!isReg && (
-              <button onClick={() => setResetMode(true)}
-                style={{ display:'block', width:'100%', marginTop:10, background:'none', border:'none', color:'#888', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
-                Forgot password?
-              </button>
-            )}
-          </Card>
+            {legalNote}
+          </>
         )}
-
-        <div style={{ display:'flex', alignItems:'center', gap:10, margin:'2px 0' }}>
-          <div style={{ flex:1, height:1, background:'#eee' }} />
-          <span style={{ fontSize:12, color:'#bbb' }}>or</span>
-          <div style={{ flex:1, height:1, background:'#eee' }} />
-        </div>
-        <button onClick={googleAuth} disabled={busy}
-          style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, width:'100%',
-            background:'#fff', border:'1.5px solid #E5E5EA', borderRadius:12, padding:'13px 14px',
-            fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
-          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-            <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.2-.1-2.3-.4-3.5z"/>
-            <path fill="#FF3D00" d="M3.3 12.7l6.6 4.8C11.5 14 17.3 10 24 10c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 15.3 2 7.8 6.9 3.3 12.7z"/>
-            <path fill="#4CAF50" d="M24 46c5.5 0 10.4-2.1 14.1-5.5l-6.5-5.5C29.6 36.8 26.9 38 24 38c-5.2 0-9.6-3.3-11.2-8l-6.6 5C9.7 41 16.3 46 24 46z"/>
-            <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6.5 5.5C40.9 36.3 45 31 45 24c0-1.2-.1-2.3-.4-3.5z"/>
-          </svg>
-          Continue with Google
-        </button>
-        <p style={{ textAlign:'center', fontSize:12, color:'#bbb' }}>
-          By continuing you agree to our{' '}
-          <span onClick={() => setLegalShow('terms')} style={{ color:'#B8900A', cursor:'pointer', textDecoration:'underline' }}>Terms of Service</span>
-          {' & '}
-          <span onClick={() => setLegalShow('privacy')} style={{ color:'#B8900A', cursor:'pointer', textDecoration:'underline' }}>Privacy Policy</span>
-        </p>
       </div>
     </div>
   )

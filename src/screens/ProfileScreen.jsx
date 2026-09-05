@@ -67,11 +67,12 @@ function PaymentModal({ user, onClose, showToast }) {
   )
 }
 
-export default function ProfileScreen({ user, city, setCity, bookings, showToast, setTab }) {
+export default function ProfileScreen({ user, profile, city, setCity, bookings, showToast, setTab, setScreen }) {
   const [modal,        setModal]       = useState(null)
   const [subscreen,    setSubscreen]   = useState(null)
   const [editingCity,  setEditingCity] = useState(false)
   const [contactEdit,  setContactEdit] = useState(false)
+  const [myPhone,      setMyPhone]     = useState(profile?.phone || '')
   const [contEmail,    setContEmail]   = useState('')
   const [contAltPhone, setContAltPhone]= useState('')
   const [contAddress,  setContAddress] = useState('')
@@ -91,6 +92,7 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
       sb.from('profiles').select('email,alternate_phone,address,phone').eq('id', user.id).single()
         .then(({ data }) => {
           if (data) {
+            setMyPhone(data.phone || '')
             setContEmail(data.email || '')
             setContAltPhone(data.alternate_phone || '')
             setContAddress(data.address || '')
@@ -195,6 +197,28 @@ export default function ProfileScreen({ user, city, setCity, bookings, showToast
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
             <p style={{ fontWeight:800, fontSize:17 }}>📞 Contact Info</p>
             <button onClick={() => setContactEdit(false)} style={{ background:'#f2f2f7', border:'none', borderRadius:10, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>Back</button>
+          </div>
+          {/* Verified mobile — read-only here; changing it needs a fresh OTP so
+              the number on file is always one the customer actually controls. */}
+          <div style={{ background:'#F9FAFB', border:'1px solid #E5E5EA', borderRadius:12, padding:'12px 14px', marginBottom:16 }}>
+            <p style={{ fontSize:12, fontWeight:600, color:'#555', marginBottom:4 }}>Mobile Number</p>
+            {myPhone ? (
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+                <span style={{ fontSize:15, fontWeight:700 }}>+91 {myPhone}</span>
+                <span style={{ background:'#D1FAE5', color:'#065F46', fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:8 }}>✓ Verified</span>
+              </div>
+            ) : (
+              <>
+                <p style={{ fontSize:12, color:'#888', marginBottom:10 }}>
+                  Not added yet. Workers call this number when they're on the way.
+                </p>
+                <button onClick={() => setScreen && setScreen('phone')}
+                  style={{ width:'100%', background:Y, border:'none', borderRadius:12, padding:12,
+                    fontWeight:800, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>
+                  Add & verify mobile number
+                </button>
+              </>
+            )}
           </div>
           {[
             ['Email Address', contEmail, setContEmail, 'you@gmail.com', 'email'],

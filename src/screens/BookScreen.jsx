@@ -3,16 +3,24 @@ import { sb } from '../lib/supabase'
 import Card from '../components/Card'
 import Btn  from '../components/Btn'
 import MapView from '../components/MapView'
+import LocationPicker from '../components/LocationPicker'
 import { serviceFloor } from '../constants'
 import { loadSettings, getSetting } from '../lib/settings'
+import { CUSTOMER_CANCEL_REASONS } from '../lib/cancelReasons'
+import { staffingLabel } from '../lib/status'
 
 const Y='#F5C000', YD='#B8900A', YL='#FFF8D6', GREEN='#22c55e'
 
 // Flow: 0 describe · 1 searching · 2 worker working · 3 approve price & pay · 4 no workers · 5 waiting verify · 6 done · 7 scheduled
-export default function BookScreen({ user, city, selSvc, setTab, showToast, loadBookings, resume, clearResume, rebookWorker, clearRebook }) {
+export default function BookScreen({ user, profile, city, selSvc, setTab, showToast, loadBookings, resume, clearResume, rebookWorker, clearRebook }) {
   const [step,        setStep]        = useState(0)
   const [desc,        setDesc]        = useState('')
-  const [addr,        setAddr]        = useState('')
+  // Exact service location for THIS booking — never inherited silently from the
+  // profile address, because the worker navigates to these coordinates and the
+  // distance on their job card is measured from them.
+  const [loc,         setLoc]         = useState({ lat:null, lng:null, address:'', landmark:'', source:null, confirmed:false })
+  const [workersNeed, setWorkersNeed] = useState(1)
+  const [crew,        setCrew]        = useState([])
   const [when,        setWhen]        = useState('now')
   const [schedAt,     setSchedAt]     = useState('')
   const [worker,      setWorker]      = useState(null)
@@ -21,6 +29,9 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
   const [paying,      setPaying]      = useState(false)
   const [utr,         setUtr]         = useState('')
   const [cancelModal, setCancelModal] = useState(false)
+  const [cancelCode,  setCancelCode]  = useState('')
+  const [cancelNote,  setCancelNote]  = useState('')
+  const [cancelBusy,  setCancelBusy]  = useState(false)
   const timer = useRef(null), chanRef = useRef(null), workerRef = useRef(null), pollRef = useRef(null)
 
   useEffect(() => () => { clearTimeout(timer.current); if (pollRef.current) clearInterval(pollRef.current); if (chanRef.current) chanRef.current.unsubscribe() }, [])
@@ -47,7 +58,17 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
       }
       setStep(2); return
     }
-    if (b.status === 'cancelled') { stopPoll(); setStep(4) }
+    if (['cancelled','customer_cancelled','worker_cancelled','expired','rejected'].includes(b.status)) {
+      clearTimeout(timer.current); stopPoll(); setStep(4)
+    }
+  }
+
+  async function loadCrew(id) {
+    if (!id) return
+    const { data } = await sb.from('booking_workers')
+      .select('worker_id,worker_name,worker_phone,status,is_primary,assigned_at,cancellation_reason')
+      .eq('booking_id', id).order('assigned_at')
+    setCrew(data || [])
   }
 
   function subscribeBooking(id) {
@@ -67,9 +88,11 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     // Catch any change that happened before the channel went live (race), then poll
     // every 5s as a safety net so the customer never gets stuck on "searching".
     sb.from('bookings').select('*').eq('id', id).single().then(({ data }) => syncBookingStep(data))
+    loadCrew(id)
     stopPoll()
     pollRef.current = setInterval(() => {
       sb.from('bookings').select('*').eq('id', id).single().then(({ data }) => syncBookingStep(data))
+      loadCrew(id)
     }, 5000)
     return ch
   }
@@ -94,15 +117,6 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     })()
     return () => { cancelled = true }
   }, [resume?.id])
-
-  function getPosition() {
-    return new Promise(res => {
-      if (!navigator.geolocation) return res(null)
-      navigator.geolocation.getCurrentPosition(
-        pos => res({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        ()  => res(null), { enableHighAccuracy: true, timeout: 5000 })
-    })
-  }
 
   // Fire a device notification + on-screen confirmation the moment a booking is
   // placed. Client-side only (works while the app is open); if the customer
@@ -136,21 +150,33 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
   }
 
   async function findWorkers() {
+    const scheduled = when==='later' && schedAt
+    if (when==='later' && !schedAt) { showToast('Pick a date & time'); return }
+    // Hard gate: no booking goes out without a location the customer looked at
+    // and confirmed. Guessing from the profile address is what sent workers to
+    // the wrong door.
+    if (!loc.confirmed || !loc.lat || !loc.lng) {
+      showToast('Please confirm your exact service location first')
+      return
+    }
+    if (!String(loc.address || '').trim()) { showToast('Add the address for the service location'); return }
+
     setStep(1)
     showToast('Finding workers nearby...')
-    const scheduled = when==='later' && schedAt
-    if (when==='later' && !schedAt) { showToast('Pick a date & time'); setStep(0); return }
-    const [pos, prof] = await Promise.all([
-      getPosition(),
-      sb.from('profiles').select('name, phone').eq('id', user?.id).single(),
-    ])
+    const { data: prof } = await sb.from('profiles').select('name, full_name, phone').eq('id', user?.id).maybeSingle()
     const { data, error } = await sb.from('bookings').insert({
       user_id: user?.id, service: selSvc?.lbl, service_id: selSvc?.id,
-      description: desc||'(No description)', address: addr||(city+', Karnataka'), city,
+      description: desc||'(No description)',
+      address: loc.address.trim(), landmark: loc.landmark?.trim() || null, city,
       status: scheduled ? 'scheduled' : 'searching',
       is_scheduled: !!scheduled, scheduled_at: scheduled ? new Date(schedAt).toISOString() : null,
-      address_lat: pos?.lat ?? null, address_lng: pos?.lng ?? null,
-      customer_name: prof?.data?.name || null, customer_phone: prof?.data?.phone || null,
+      address_lat: loc.lat, address_lng: loc.lng,
+      location_source: loc.source || 'map',
+      location_accuracy_m: loc.accuracy ?? null,
+      location_confirmed_at: new Date().toISOString(),
+      workers_required: Math.max(1, Math.min(Number(workersNeed) || 1, 50)),
+      customer_name: prof?.name || prof?.full_name || profile?.name || null,
+      customer_phone: prof?.phone || profile?.phone || null,
       preferred_worker_id: rebookWorker?.id || null,
     }).select().single()
     if (error) { showToast('Error: '+error.message); setStep(0); return }
@@ -168,11 +194,17 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     showToast('Booking placed ✓ — finding a verified worker near you')
     subscribeBooking(data.id)
     clearRebook && clearRebook()
+    // Give a multi-worker request longer to fill, and never expire one that
+    // already has workers on it.
+    const searchWindow = (Number(workersNeed) || 1) > 1 ? 420000 : 180000
     timer.current = setTimeout(async () => {
+      const { data: fresh } = await sb.from('bookings')
+        .select('status,workers_accepted').eq('id', data.id).single()
+      if (fresh && (fresh.status !== 'searching' || (fresh.workers_accepted || 0) > 0)) return
       if (chanRef.current) { chanRef.current.unsubscribe(); chanRef.current = null }
-      await sb.from('bookings').update({ status:'cancelled' }).eq('id', data.id)
+      await sb.from('bookings').update({ status:'expired' }).eq('id', data.id)
       setStep(4)
-    }, 180000)
+    }, searchWindow)
   }
 
   function upiLink() {
@@ -268,27 +300,33 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
     if (chanRef.current) { chanRef.current.unsubscribe(); chanRef.current = null }
     workerRef.current = null
-    setStep(0); setDesc(''); setAddr(''); setWorker(null); setBooking(null); setRating(0)
-    setCancelModal(false)
+    setStep(0); setDesc(''); setWorker(null); setBooking(null); setRating(0)
+    setLoc({ lat:null, lng:null, address:'', landmark:'', source:null, confirmed:false })
+    setWorkersNeed(1); setCrew([])
+    setCancelModal(false); setCancelCode(''); setCancelNote('')
   }
 
   async function confirmCancel() {
-    // If a worker is assigned (step 2+), cancel in DB and notify worker
+    if (cancelBusy) return
+    if (!cancelCode) { showToast('Please select a reason for cancelling'); return }
+    if (cancelCode === 'other' && !cancelNote.trim()) { showToast('Please tell us the reason'); return }
+
     if (booking?.id) {
-      await sb.from('bookings').update({
-        status: 'customer_cancelled',
-        cancelled_by: 'customer',
-      }).eq('id', booking.id)
-      // Notify worker if assigned
-      if (booking.worker_id) {
-        await sb.from('notifications').insert({
-          user_id: booking.worker_id,
-          title: 'Booking Cancelled',
-          body: 'The customer cancelled the booking for ' + (booking.service || 'service') + '. You are free to take other jobs.',
-          type: 'booking_cancelled',
-          booking_id: booking.id,
-        }).then(() => {})
-      }
+      setCancelBusy(true)
+      const reason = CUSTOMER_CANCEL_REASONS.find(r => r.code === cancelCode)
+      // One server call: it records the reason, releases every assigned worker,
+      // writes the audit row and notifies the worker. A client-side update
+      // could not notify the worker at all (notifications are owner-only).
+      const { error } = await sb.rpc('cancel_booking_customer', {
+        p_booking_id: booking.id,
+        p_reason_code: cancelCode,
+        p_reason_label: reason?.label || cancelCode,
+        p_note: cancelNote.trim() || null,
+      })
+      setCancelBusy(false)
+      if (error) { showToast(error.message.replace(/^.*?:\s*/, '')); return }
+      showToast('Booking cancelled ✓')
+      await loadBookings?.()
     }
     resetAll()
     setTab('home')
@@ -302,22 +340,48 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
     <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:12 }}>
       {/* Cancel confirmation modal */}
       {cancelModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-          <div style={{ background:'#fff', borderRadius:20, padding:24, width:'100%', maxWidth:380 }}>
-            <p style={{ fontWeight:800, fontSize:17, marginBottom:8 }}>Cancel this booking?</p>
-            <p style={{ fontSize:14, color:'#555', marginBottom:20 }}>
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:999, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+          <div style={{ background:'#fff', borderRadius:'22px 22px 0 0', padding:'20px 20px 30px', width:'100%', maxWidth:430, maxHeight:'88vh', overflowY:'auto' }}>
+            <p style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>Cancel this booking?</p>
+            <p style={{ fontSize:13, color:'#666', marginBottom:16 }}>
               {booking?.worker_id
-                ? 'The worker will be notified that you cancelled.'
-                : 'Your booking request will be cancelled.'}
+                ? 'The worker will be notified straight away. Please tell us why:'
+                : 'Please tell us why so we can improve:'}
             </p>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:14 }}>
+              {CUSTOMER_CANCEL_REASONS.map(r => (
+                <button key={r.code} onClick={() => setCancelCode(r.code)}
+                  style={{ display:'flex', alignItems:'center', gap:10, textAlign:'left',
+                    background: cancelCode===r.code ? YL : '#fff',
+                    border:'1.5px solid '+(cancelCode===r.code ? Y : '#E5E5EA'),
+                    borderRadius:12, padding:'12px 14px', fontSize:14, fontWeight:600,
+                    cursor:'pointer', fontFamily:'inherit' }}>
+                  <span style={{ width:18, height:18, borderRadius:'50%', flexShrink:0,
+                    border:'2px solid '+(cancelCode===r.code ? YD : '#CFCFD4'),
+                    background: cancelCode===r.code ? YD : 'transparent' }} />
+                  {r.label}
+                </button>
+              ))}
+            </div>
+
+            {cancelCode === 'other' && (
+              <textarea value={cancelNote} onChange={e => setCancelNote(e.target.value.slice(0, 300))} rows={3}
+                autoFocus placeholder="Tell us what happened…"
+                style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:12, fontSize:14,
+                  outline:'none', fontFamily:'inherit', resize:'none', marginBottom:14, boxSizing:'border-box' }} />
+            )}
+
             <div style={{ display:'flex', gap:10 }}>
-              <button onClick={() => setCancelModal(false)}
-                style={{ flex:1, background:'#f2f2f7', border:'none', borderRadius:12, padding:13, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>
+              <button onClick={() => { setCancelModal(false); setCancelCode(''); setCancelNote('') }}
+                style={{ flex:1, background:'#f2f2f7', border:'none', borderRadius:12, padding:14, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>
                 Keep Booking
               </button>
-              <button onClick={confirmCancel}
-                style={{ flex:1, background:'#ef4444', color:'#fff', border:'none', borderRadius:12, padding:13, fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>
-                Yes, Cancel
+              <button onClick={confirmCancel} disabled={cancelBusy || !cancelCode}
+                style={{ flex:1, background:'#ef4444', color:'#fff', border:'none', borderRadius:12, padding:14,
+                  fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit',
+                  opacity:(cancelBusy || !cancelCode) ? .5 : 1 }}>
+                {cancelBusy ? 'Cancelling…' : 'Cancel Booking'}
               </button>
             </div>
           </div>
@@ -333,10 +397,11 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
               {bookingRef && <span style={{ marginLeft:8, fontFamily:'monospace', fontWeight:800 }}>{bookingRef}</span>}
             </p>
           </div>
-          {step < 5 && step !== 6 && (
+          {step > 0 && step < 5 && step !== 6 && (
             <button onClick={() => setCancelModal(true)}
-              style={{ background:'rgba(0,0,0,.12)', border:'none', borderRadius:8, padding:'6px 12px', cursor:'pointer', fontSize:12, fontWeight:700 }}>
-              ✕ Cancel
+              style={{ background:'rgba(0,0,0,.14)', border:'none', borderRadius:9, padding:'7px 13px',
+                cursor:'pointer', fontSize:12, fontWeight:800, fontFamily:'inherit', whiteSpace:'nowrap' }}>
+              ✕ Cancel Booking
             </button>
           )}
         </div>
@@ -348,13 +413,54 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
       </div>
 
       {step===0 && <>
+        {/* 1 — Service (already chosen on the home screen) */}
         <Card>
-          <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:.6, marginBottom:12 }}>Describe the problem</p>
+          <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:.6, marginBottom:8 }}>Service</p>
+          <p style={{ fontSize:16, fontWeight:800 }}>{selSvc?.ico} {selSvc?.lbl}</p>
+        </Card>
+
+        {/* 2 — Exact service location */}
+        <Card>
+          <LocationPicker user={user} city={city} value={loc} onChange={setLoc}
+            onConfirm={() => showToast('Service location confirmed ✓')} showToast={showToast} />
+        </Card>
+
+        {/* 3 — Workers required */}
+        <Card>
+          <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:.6, marginBottom:4 }}>Workers Required</p>
+          <p style={{ fontSize:12, color:'#888', marginBottom:12 }}>
+            How many people do you need for this job?
+          </p>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
+            {[1,2,3,4,5].map(n => (
+              <button key={n} onClick={() => setWorkersNeed(n)}
+                style={{ flex:'1 1 56px', background: workersNeed===n ? Y : '#f5f5f5', border:'none',
+                  borderRadius:12, padding:'13px 0', fontWeight:800, fontSize:16, cursor:'pointer', fontFamily:'inherit' }}>
+                {n}
+              </button>
+            ))}
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ fontSize:12, color:'#888', flexShrink:0 }}>Need more?</span>
+            <input type="number" min={1} max={50} value={workersNeed}
+              onChange={e => setWorkersNeed(Math.max(1, Math.min(50, Number(e.target.value.replace(/\D/g,'')) || 1)))}
+              style={{ width:80, border:'1.5px solid #E5E5EA', borderRadius:10, padding:'9px 12px',
+                fontSize:15, fontWeight:700, outline:'none', fontFamily:'inherit', textAlign:'center' }} />
+            <span style={{ fontSize:13, color:'#555' }}>worker{workersNeed>1?'s':''}</span>
+          </div>
+          {workersNeed > 1 && (
+            <p style={{ fontSize:11, color:YD, marginTop:10, background:YL, borderRadius:8, padding:'8px 10px' }}>
+              We'll keep the request open until {workersNeed} workers have accepted. You'll see each one
+              confirm as they join.
+            </p>
+          )}
+        </Card>
+
+        {/* 4 — Booking details */}
+        <Card>
+          <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:.6, marginBottom:12 }}>Booking Details</p>
           <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="e.g. Fan not working..." rows={3}
-            style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:13, fontSize:14, outline:'none', fontFamily:'inherit', resize:'none', marginBottom:12 }} />
-          <p style={{ fontSize:12, fontWeight:600, color:'#555', marginBottom:6 }}>Address</p>
-          <input value={addr} onChange={e => setAddr(e.target.value)} placeholder={'MG Road, '+city}
-            style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:13, fontSize:14, outline:'none', fontFamily:'inherit' }} />
+            style={{ width:'100%', border:'1.5px solid #E5E5EA', borderRadius:12, padding:13, fontSize:14, outline:'none', fontFamily:'inherit', resize:'none' }} />
         </Card>
         {rebookWorker && (
           <Card style={{ border:'2px solid '+Y, background:YL }}>
@@ -383,19 +489,48 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           </div>
           <p style={{ fontSize:11, color:'#bbb', marginTop:4 }}>Final price set by the worker after the job — you approve it before paying. UPI payment only, no cash.</p>
         </Card>
-        <Btn label={when==='later' ? 'Schedule Booking 📅' : 'Find Workers Near Me 🔍'} onClick={findWorkers} />
+        {!loc.confirmed && (
+          <p style={{ fontSize:12, color:'#B8900A', background:'#FFF8D6', borderRadius:10, padding:'10px 12px' }}>
+            ⚠️ Confirm your exact service location above to continue.
+          </p>
+        )}
+        <Btn
+          label={when==='later' ? 'Confirm Booking 📅' : `Confirm Booking${workersNeed>1 ? ` · ${workersNeed} workers` : ''} →`}
+          onClick={findWorkers}
+          disabled={!loc.confirmed} />
       </>}
 
-      {step===1 && (
-        <Card style={{ textAlign:'center', padding:40 }}>
-          <div style={{ fontSize:52, marginBottom:16 }}>🔍</div>
-          <p style={{ fontWeight:800, fontSize:18 }}>Finding workers nearby...</p>
-          <p style={{ fontSize:13, color:'#888', marginTop:6 }}>Checking availability in {city}</p>
-          <div style={{ background:'#f0f0f0', borderRadius:20, height:6, overflow:'hidden', marginTop:20 }}>
-            <div style={{ background:Y, height:'100%', borderRadius:20, width:'65%' }} />
-          </div>
-        </Card>
-      )}
+      {step===1 && (() => {
+        const need = Math.max(Number(booking?.workers_required) || workersNeed || 1, 1)
+        const have = Number(booking?.workers_accepted) || 0
+        const pct  = need > 1 ? Math.max(8, Math.round((have / need) * 100)) : 65
+        return (
+          <Card style={{ textAlign:'center', padding:40 }}>
+            <div style={{ fontSize:52, marginBottom:16 }}>🔍</div>
+            <p style={{ fontWeight:800, fontSize:18 }}>
+              {need > 1 ? 'Gathering your team…' : 'Finding workers nearby...'}
+            </p>
+            <p style={{ fontSize:13, color:'#888', marginTop:6 }}>
+              {need > 1 ? `${have} of ${need} workers confirmed · ${city}` : `Checking availability in ${city}`}
+            </p>
+            <div style={{ background:'#f0f0f0', borderRadius:20, height:6, overflow:'hidden', marginTop:20 }}>
+              <div style={{ background:Y, height:'100%', borderRadius:20, width:pct+'%', transition:'width .4s' }} />
+            </div>
+            {have > 0 && crew.filter(c => c.status === 'assigned').length > 0 && (
+              <div style={{ marginTop:16, textAlign:'left' }}>
+                {crew.filter(c => c.status === 'assigned').map(c => (
+                  <div key={c.worker_id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0' }}>
+                    <span style={{ fontSize:16 }}>👷</span>
+                    <span style={{ fontSize:13, fontWeight:700 }}>{c.worker_name || 'Worker'}</span>
+                    <span style={{ marginLeft:'auto', background:'#D1FAE5', color:'#065F46', fontSize:10,
+                      fontWeight:700, padding:'2px 8px', borderRadius:6 }}>Confirmed</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )
+      })()}
 
       {step===2 && worker && <>
         <MapView
@@ -433,6 +568,38 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
             <p style={{ fontSize:11, color:'#aaa', marginTop:4 }}>The worker will send the final price when the work is done. You approve it before paying via UPI.</p>
           </div>
         </Card>
+        {/* Everyone else on this job (multi-worker bookings) */}
+        {crew.filter(c => c.status === 'assigned' && c.worker_id !== worker?.id).length > 0 && (
+          <Card>
+            <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:.6, marginBottom:10 }}>
+              Your team ({crew.filter(c => c.status === 'assigned').length} of {booking?.workers_required || 1})
+            </p>
+            {crew.filter(c => c.status === 'assigned').map(c => (
+              <div key={c.worker_id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderTop:'1px solid #f5f5f5' }}>
+                <div style={{ width:34, height:34, borderRadius:11, background:YL, display:'flex', alignItems:'center', justifyContent:'center', fontSize:17 }}>👷</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:13.5, fontWeight:700 }}>{c.worker_name || 'Worker'}</p>
+                  {c.is_primary && <p style={{ fontSize:11, color:'#888' }}>Lead worker</p>}
+                </div>
+                {c.worker_phone && (
+                  <a href={'tel:+91'+c.worker_phone}
+                    style={{ width:34, height:34, borderRadius:11, background:GREEN, display:'flex', alignItems:'center',
+                      justifyContent:'center', fontSize:15, textDecoration:'none', flexShrink:0 }}>📞</a>
+                )}
+              </div>
+            ))}
+          </Card>
+        )}
+
+        {/* Where the worker is heading — the exact point the customer confirmed */}
+        {(booking?.address || booking?.landmark) && (
+          <Card>
+            <p style={{ fontSize:12, fontWeight:700, color:'#aaa', textTransform:'uppercase', letterSpacing:.6, marginBottom:8 }}>Service Location</p>
+            <p style={{ fontSize:14, fontWeight:600, lineHeight:1.5 }}>📍 {booking.address}</p>
+            {booking.landmark && <p style={{ fontSize:12.5, color:'#888', marginTop:4 }}>Landmark: {booking.landmark}</p>}
+          </Card>
+        )}
+
         {booking?.completion_otp && (
           <Card style={{ border:'2px dashed '+Y, background:YL }}>
             <p style={{ fontWeight:800, fontSize:14, marginBottom:4 }}>🔐 Your Completion Code</p>
@@ -445,6 +612,14 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
           </Card>
         )}
       </>}
+
+      {step===2 && (
+        <button onClick={() => setCancelModal(true)}
+          style={{ width:'100%', background:'#fff', color:'#ef4444', border:'1.5px solid #ef4444',
+            borderRadius:14, padding:14, fontWeight:800, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>
+          Cancel Booking
+        </button>
+      )}
 
       {step===3 && <>
         <Card style={{ textAlign:'center', padding:24 }}>
@@ -516,18 +691,32 @@ export default function BookScreen({ user, city, selSvc, setTab, showToast, load
         </Card>
       </>}
 
-      {step===4 && (
-        <Card style={{ textAlign:'center', padding:32 }}>
-          <div style={{ fontSize:52, marginBottom:12 }}>😔</div>
-          <p style={{ fontWeight:800, fontSize:18 }}>No Workers Available</p>
-          <p style={{ fontSize:13, color:'#888', margin:'8px 0 20px' }}>No workers in {city} accepted this job right now. Try again in a few minutes.</p>
-          <Btn label="Try Again" onClick={() => { setStep(0); setWorker(null); workerRef.current=null }} />
-          <button onClick={() => setTab('home')}
-            style={{ display:'block', width:'100%', margin:'10px 0 0', background:'none', border:'none', color:'#aaa', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
-            Go Home
-          </button>
-        </Card>
-      )}
+      {step===4 && (() => {
+        const st = booking?.status
+        const byWorker   = st === 'worker_cancelled'
+        const byCustomer = st === 'customer_cancelled'
+        const ico   = byWorker ? '🚫' : byCustomer ? '✕' : '😔'
+        const title = byWorker ? 'Worker Cancelled'
+          : byCustomer ? 'Booking Cancelled'
+          : 'No Workers Available'
+        const body = byWorker
+          ? `The worker cancelled${booking?.cancellation_reason ? ' — ' + booking.cancellation_reason : ''}. You can send the request out again.`
+          : byCustomer
+          ? `You cancelled this booking${booking?.cancellation_reason ? ' — ' + booking.cancellation_reason : ''}.`
+          : `No workers in ${city} accepted this job in time. Try again in a few minutes.`
+        return (
+          <Card style={{ textAlign:'center', padding:32 }}>
+            <div style={{ fontSize:52, marginBottom:12 }}>{ico}</div>
+            <p style={{ fontWeight:800, fontSize:18 }}>{title}</p>
+            <p style={{ fontSize:13, color:'#888', margin:'8px 0 20px' }}>{body}</p>
+            <Btn label="Book Again" onClick={() => { resetAll() }} />
+            <button onClick={() => { resetAll(); setTab('home') }}
+              style={{ display:'block', width:'100%', margin:'10px 0 0', background:'none', border:'none', color:'#aaa', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+              Go Home
+            </button>
+          </Card>
+        )
+      })()}
 
       {step===5 && (
         <Card style={{ textAlign:'center', padding:36 }}>

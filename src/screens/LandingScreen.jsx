@@ -105,11 +105,12 @@ export default function LandingScreen({ setScreen }) {
   if (legal) return <LegalScreen section={legal} onBack={() => setLegal(null)} />
 
   return (
-    <div style={{ background: '#fff', maxWidth: 430, margin: '0 auto', width: '100%', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ background: '#fff', width: '100%', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
 
       {/* ── Sticky Nav ── */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(255,255,255,.95)', backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid #E5E5EA', padding: '0 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 56 }}>
+        borderBottom: '1px solid #E5E5EA' }}>
+        <div className="kr-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 56 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <img src="/icon-192.png" alt="Kaam Ready" style={{ width: 28, height: 28, borderRadius: 7 }} />
           <span style={{ fontSize: 16, fontWeight: 800, color: BK }}>Kaam Ready</span>
@@ -124,10 +125,12 @@ export default function LandingScreen({ setScreen }) {
             Sign In
           </button>
         </div>
+        </div>
       </nav>
 
       {/* ── Hero ── */}
-      <div style={{ background: `linear-gradient(160deg, ${Y} 0%, #FFD940 100%)`, padding: '40px 20px 36px', textAlign: 'center' }}>
+      <div style={{ background: `linear-gradient(160deg, ${Y} 0%, #FFD940 100%)`, padding: '40px 0 36px', textAlign: 'center' }}>
+        <div className="kr-container">
         <img src="/icon-192.png" alt="Kaam Ready" style={{ width: 76, height: 76, borderRadius: 18, marginBottom: 12, boxShadow: '0 6px 18px rgba(0,0,0,.18)' }} />
         <h1 style={{ fontSize: 28, fontWeight: 900, color: BK, lineHeight: 1.2, marginBottom: 10 }}>
           Skilled Workers<br />at Your Doorstep
@@ -157,13 +160,15 @@ export default function LandingScreen({ setScreen }) {
             </div>
           ))}
         </div>
+        </div>
       </div>
 
       {/* ── Services ── */}
-      <div id="services" style={{ padding: '32px 16px' }}>
+      <div id="services" style={{ padding: '32px 0' }}>
+        <div className="kr-container">
         <p style={{ fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: 4 }}>Services</p>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: BK, marginBottom: 20 }}>Everything your home needs</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+        <div className="kr-svc-grid">
           {SERVICES.map(s => (
             <div key={s.lbl} onClick={() => setScreen('login')}
               style={{ background: '#f9f9f9', borderRadius: 14, padding: '14px 10px', textAlign: 'center', cursor: 'pointer',
@@ -180,13 +185,15 @@ export default function LandingScreen({ setScreen }) {
           style={{ width: '100%', background: Y, border: 'none', borderRadius: 14, padding: 14, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', marginTop: 16 }}>
           Book a Service Now →
         </button>
+        </div>
       </div>
 
       {/* ── How it Works ── */}
-      <div id="how" style={{ background: '#F2F2F7', padding: '32px 16px' }}>
+      <div id="how" style={{ background: '#F2F2F7', padding: '32px 0' }}>
+        <div className="kr-container">
         <p style={{ fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: 4 }}>How it works</p>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: BK, marginBottom: 20 }}>As easy as ordering food</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="kr-grid-2">
           {HOW.map((step, i) => (
             <div key={i} style={{ background: '#fff', borderRadius: 16, padding: 16, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
               <div style={{ width: 40, height: 40, borderRadius: 12, background: Y, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{step.ico}</div>
@@ -197,13 +204,15 @@ export default function LandingScreen({ setScreen }) {
             </div>
           ))}
         </div>
+        </div>
       </div>
 
       {/* ── Trust & Safety ── */}
-      <div id="trust" style={{ padding: '32px 16px' }}>
+      <div id="trust" style={{ padding: '32px 0' }}>
+        <div className="kr-container">
         <p style={{ fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: 4 }}>Trust & Safety</p>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: BK, marginBottom: 20 }}>Your safety is our priority</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
+        <div className="kr-grid-2">
           {TRUST.map(t => (
             <div key={t.title} style={{ background: YL, borderRadius: 16, padding: 16, border: '1.5px solid #F5C000' }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>{t.ico}</div>
@@ -212,14 +221,16 @@ export default function LandingScreen({ setScreen }) {
             </div>
           ))}
         </div>
+        </div>
       </div>
 
       {/* ── Worker Benefits ── */}
-      <div id="workers" style={{ background: BK, padding: '32px 16px' }}>
+      <div id="workers" style={{ background: BK, padding: '32px 0' }}>
+        <div className="kr-container">
         <p style={{ fontSize: 11, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: 4 }}>For Workers</p>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: Y, marginBottom: 6 }}>Earn more, work freely</h2>
         <p style={{ fontSize: 13, color: '#636366', marginBottom: 20, lineHeight: 1.6 }}>Join 5000+ workers earning ₹500–₹2000/day on their own schedule.</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="kr-grid-2">
           {WORKER_BENEFITS.map(b => (
             <div key={b.title} style={{ background: '#111', borderRadius: 14, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <div style={{ width: 38, height: 38, borderRadius: 10, background: YL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{b.ico}</div>
@@ -236,17 +247,23 @@ export default function LandingScreen({ setScreen }) {
             Join as Worker →
           </a>
         </div>
+        </div>
       </div>
 
       {/* ── FAQs ── */}
-      <div id="faq" style={{ padding: '32px 16px' }}>
+      <div id="faq" style={{ padding: '32px 0' }}>
+        <div className="kr-container">
         <p style={{ fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: 4 }}>FAQ</p>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: BK, marginBottom: 20 }}>Common questions</h2>
-        {FAQS.map(f => <FAQItem key={f.q} {...f} />)}
+        <div className="kr-grid-2" style={{ alignItems: 'start' }}>
+          {FAQS.map(f => <FAQItem key={f.q} {...f} />)}
+        </div>
+        </div>
       </div>
 
       {/* ── Contact Support ── */}
-      <div id="contact" style={{ background: '#F2F2F7', padding: '32px 16px' }}>
+      <div id="contact" style={{ background: '#F2F2F7', padding: '32px 0' }}>
+        <div className="kr-container">
         <h2 style={{ fontSize: 20, fontWeight: 800, color: BK, marginBottom: 8 }}>Need help?</h2>
         <p style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>Our support team is available 8 AM – 10 PM, 7 days a week.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -265,6 +282,7 @@ export default function LandingScreen({ setScreen }) {
               <span style={{ marginLeft: 'auto', color: '#ccc', fontSize: 18 }}>›</span>
             </a>
           ))}
+        </div>
         </div>
       </div>
 
