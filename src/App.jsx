@@ -78,6 +78,9 @@ export default function App() {
   }, [user?.id])
 
   useEffect(() => {
+    // Hard ceiling on the initial auth check — a dropped connection should
+    // land the customer on the landing page, never on an endless loader.
+    const failsafe = setTimeout(() => setAuthChecked(true), 6000)
     sb.auth.getSession().then(({ data }) => {
       if (data.session?.user) {
         setUser(data.session.user)
@@ -85,7 +88,7 @@ export default function App() {
       } else {
         setAuthChecked(true)
       }
-    })
+    }).catch(() => setAuthChecked(true)).finally(() => clearTimeout(failsafe))
     const { data: { subscription } } = sb.auth.onAuthStateChange((_e, session) => {
       if (session?.user) {
         setUser(session.user)
@@ -128,19 +131,26 @@ export default function App() {
   }
 
   async function loadProfile(uid, authUser) {
-    logConsentOnce(uid)
-    if (authUser) await syncIdentity(authUser)
-    const { data } = await sb.from('profiles')
-      .select('city,phone,name,full_name,email,avatar_url').eq('id', uid).maybeSingle()
-    setProfile(data || null)
-    if (data?.city) setCity(data.city)
+    try {
+      logConsentOnce(uid)
+      if (authUser) await syncIdentity(authUser)
+      const { data } = await sb.from('profiles')
+        .select('city,phone,name,full_name,email,avatar_url').eq('id', uid).maybeSingle()
+      setProfile(data || null)
+      if (data?.city) setCity(data.city)
 
-    if (!data?.city)        setScreen('city')
-    else if (!data?.phone)  setScreen('phone')   // Google sign-in: no number yet
-    else                    setScreen('main')
+      if (!data?.city)        setScreen('city')
+      else if (!data?.phone)  setScreen('phone')   // Google sign-in: no number yet
+      else                    setScreen('main')
 
-    if (!termsAccepted()) setShowTerms(true)
-    setAuthChecked(true)
+      if (!termsAccepted()) setShowTerms(true)
+    } catch (e) {
+      // A failed profile read must not strand the app on a spinner.
+      console.warn('Profile load failed:', e?.message || e)
+      setScreen('city')
+    } finally {
+      setAuthChecked(true)
+    }
   }
 
   async function loadBookings() {
@@ -168,6 +178,11 @@ export default function App() {
   if (path === '/delete-account' || path === '/delete') {
     return <Suspense fallback={<PageLoader />}><DeleteAccountPage /></Suspense>
   }
+
+  // Until we know whether there is a session, show the loader. Without this
+  // the landing page paints first and is then replaced by the app a moment
+  // later — the "website flashes, then flips to the app" glitch on refresh.
+  if (!authChecked) return <PageLoader />
 
   return (
     <Suspense fallback={<PageLoader />}>

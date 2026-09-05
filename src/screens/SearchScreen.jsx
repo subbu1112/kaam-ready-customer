@@ -185,8 +185,8 @@ export default function SearchScreen({ city, setSelSvc, setTab, showToast }) {
 
   return (
     <div style={{ flex:1, overflowY:'auto', background:BG, display:'flex', flexDirection:'column' }}>
-      <div style={{ position:'sticky', top:0, zIndex:10, background:`${BG}f0`,
-        backdropFilter:'blur(12px)', borderBottom:'2px solid rgba(0,0,0,.06)', padding:'12px 16px 10px' }}>
+      <div style={{ position:'sticky', top:0, zIndex:10, background:BG,
+        borderBottom:'2px solid rgba(0,0,0,.06)', padding:'12px 16px 10px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10, background:WHITE,
           border:`2px solid ${BK}`, borderRadius:9999, padding:'10px 14px',
           boxShadow:SHADOW, marginBottom:10 }}>
