@@ -149,6 +149,19 @@ jobs:
           echo "--- bundle contents check ---"
           ls -lh app-release-bundle.aab app-release-signed.apk
 
+      - name: Collect the generated theme for inspection
+        working-directory: android
+        run: |
+          set -e
+          mkdir -p generated
+          for f in app/src/main/res/values/styles.xml app/src/main/res/values-v*/styles.xml \
+                   app/src/main/res/values/colors.xml app/src/main/AndroidManifest.xml \
+                   app/build.gradle gradle.properties; do
+            [ -f "$f" ] && cp "$f" "generated/$(echo "$f" | tr '/' '_')"
+          done
+          ls -l generated
+          tar czf generated-project.tgz generated
+
       - name: Upload the App Bundle
         uses: actions/upload-artifact@v4
         with:
@@ -156,6 +169,7 @@ jobs:
           path: |
             android/app-release-bundle.aab
             android/app-release-signed.apk
+            android/generated-project.tgz
           if-no-files-found: error
           retention-days: 30
 
