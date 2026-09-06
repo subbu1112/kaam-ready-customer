@@ -40,7 +40,7 @@ jobs:
         run: |
           set -e
           gh release create "${{ github.event.inputs.tag }}" \
-            dist/app-release-bundle.aab dist/app-release-signed.apk \
+            dist/* \
             --title "Kaam Ready ${{ github.event.inputs.tag }}" \
             --notes "Signed bundle from run ${{ github.event.inputs.runId }}." \
             --repo "${{ github.repository }}"
