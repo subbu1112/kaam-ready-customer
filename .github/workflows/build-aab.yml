@@ -90,6 +90,26 @@ jobs:
         working-directory: android
         run: bubblewrap update --skipVersionUpgrade
 
+      - name: Enable R8 full mode and inspect the generated theme
+        working-directory: android
+        run: |
+          set -e
+          # Play recommends R8 full mode for smaller, faster builds. Bubblewrap's
+          # generated project leaves it off; turn it on without touching anything
+          # else it generates.
+          touch gradle.properties
+          sed -i '/^android\.enableR8\.fullMode/d' gradle.properties
+          echo 'android.enableR8.fullMode=true' >> gradle.properties
+          echo '--- gradle.properties ---'; cat gradle.properties
+          echo '--- minify settings ---'
+          grep -nE 'minifyEnabled|shrinkResources' app/build.gradle || true
+          echo '--- generated theme (edge-to-edge attributes live here) ---'
+          for f in app/src/main/res/values/styles.xml app/src/main/res/values-v*/styles.xml; do
+            [ -f "$f" ] && { echo "== $f"; cat "$f"; }
+          done
+          echo '--- manifest ---'
+          grep -nE 'theme|Theme|windowOptOut' app/src/main/AndroidManifest.xml || true
+
       - name: Assert targetSdkVersion 36
         working-directory: android
         run: |
