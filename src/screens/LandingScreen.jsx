@@ -273,7 +273,7 @@ export default function LandingScreen({ setScreen }) {
           {[
             ['📞', 'Call Us', '+91 63628 69636', 'tel:+916362869636'],
             ['💬', 'WhatsApp', 'Chat with support', 'https://wa.me/916362869636'],
-            ['📧', 'Email', 'support@kaamready.in', 'mailto:support@kaamready.in'],
+            ['📧', 'Email', 'thekaamready@gmail.com', 'mailto:thekaamready@gmail.com'],
           ].map(([ico, title, sub, href]) => (
             <a key={title} href={href} target="_blank" rel="noopener noreferrer"
               style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center', textDecoration: 'none', border: '1px solid #E5E5EA' }}>
@@ -314,7 +314,7 @@ export default function LandingScreen({ setScreen }) {
             Book Now
           </button>
         </div>
-        <p style={{ color: '#333', fontSize: 11, marginTop: 16 }}>© 2025 Kaam Ready. Made in Karnataka 🇮🇳</p>
+        <p style={{ color: '#333', fontSize: 11, marginTop: 16 }}>© {new Date().getFullYear()} Kaam Ready. Made in Karnataka 🇮🇳</p>
       </footer>
     </div>
   )

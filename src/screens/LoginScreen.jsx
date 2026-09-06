@@ -108,7 +108,7 @@ export default function LoginScreen({ setScreen, showToast }) {
               <p style={{marginTop:12}}><strong>Data sharing:</strong> We share your first name, contact and confirmed service location with the assigned worker only. We never sell your data.</p>
               <p style={{marginTop:12}}><strong>Storage:</strong> Data is stored securely on Supabase (hosted in Singapore). OTPs are deleted after use.</p>
               <p style={{marginTop:12}}><strong>Deletion:</strong> You can delete your account from the Profile screen at any time.</p>
-              <p style={{marginTop:12}}><strong>Contact:</strong> support@kaamready.in · 6362869636</p>
+              <p style={{marginTop:12}}><strong>Contact:</strong> thekaamready@gmail.com · 6362869636</p>
             </>
           ) : (
             <>
@@ -119,7 +119,7 @@ export default function LoginScreen({ setScreen, showToast }) {
               <p style={{marginTop:12}}><strong>Liability:</strong> KaamReady is not liable for workmanship disputes. Please contact support within 24 hours if you have a concern.</p>
               <p style={{marginTop:12}}><strong>Cancellation:</strong> You may cancel a booking from the booking screen, including after it is confirmed, by selecting a cancellation reason. Cancellations after a worker has started work may incur a convenience fee.</p>
               <p style={{marginTop:12}}><strong>Prohibited use:</strong> You may not use this platform for illegal activities or attempt to circumvent payment systems.</p>
-              <p style={{marginTop:12}}><strong>Contact:</strong> support@kaamready.in · 6362869636</p>
+              <p style={{marginTop:12}}><strong>Contact:</strong> thekaamready@gmail.com · 6362869636</p>
             </>
           )}
         </div>

@@ -17,7 +17,7 @@ export default function DeleteAccountPage() {
         <p>Open the Kaam Ready app → <b>Profile</b> → <b>Delete My Account</b> (under "Danger Zone"). Confirm, and your deletion request is logged immediately.</p>
 
         <h2 style={{ fontSize:16, fontWeight:800, color:BK, margin:'20px 0 8px' }}>Option 2 — By email</h2>
-        <p>Email <a href="mailto:privacy@kaamready.in?subject=Account%20Deletion%20Request" style={{ color:'#B8900A', fontWeight:700 }}>privacy@kaamready.in</a> from your registered email or with your registered phone number, with the subject "Account Deletion Request". We verify and process the request.</p>
+        <p>Email <a href="mailto:thekaamready@gmail.com?subject=Account%20Deletion%20Request" style={{ color:'#B8900A', fontWeight:700 }}>thekaamready@gmail.com</a> from your registered email or with your registered phone number, with the subject "Account Deletion Request". We verify and process the request.</p>
 
         <h2 style={{ fontSize:16, fontWeight:800, color:BK, margin:'20px 0 8px' }}>What gets deleted</h2>
         <p>Your profile, contact details, saved addresses, booking history, ratings/reviews you left, and any uploaded documents (e.g. worker KYC images). Records we are legally required to retain (such as tax/transaction records for payments already made) are kept only for the statutory period and then deleted.</p>
@@ -26,7 +26,7 @@ export default function DeleteAccountPage() {
         <p>Account access is disabled immediately on request. Full data erasure is completed within 30 days.</p>
 
         <p style={{ marginTop:24, fontSize:13, color:'#777' }}>
-          Questions? Contact our Grievance Officer at <a href="mailto:grievance@kaamready.in" style={{ color:'#B8900A' }}>grievance@kaamready.in</a> · 6362869636.
+          Questions? Contact our Grievance Officer at <a href="mailto:thekaamready@gmail.com" style={{ color:'#B8900A' }}>thekaamready@gmail.com</a> · 6362869636.
         </p>
         <p style={{ marginTop:16 }}>
           <a href="/" style={{ color:'#B8900A', fontWeight:700, textDecoration:'none' }}>← Back to Kaam Ready</a>

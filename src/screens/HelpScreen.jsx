@@ -46,7 +46,7 @@ export default function HelpScreen({ user, onBack, showToast }) {
   useEffect(() => { loadSettings().then(setCfg) }, [])
 
   const supportTel  = '+916362869636'
-  const supportMail = cfg.support_email || 'support@kaamready.in'
+  const supportMail = cfg.support_email || 'thekaamready@gmail.com'
   const supportWa   = '916362869636'
 
   const CATEGORIES = [
@@ -90,7 +90,7 @@ export default function HelpScreen({ user, onBack, showToast }) {
           <div style={{ fontSize: 52, marginBottom: 12 }}>✅</div>
           <p style={{ fontWeight: 800, fontSize: 20, color: Y, marginBottom: 8 }}>Ticket Raised!</p>
           <p style={{ fontSize: 13, color: '#aaa', lineHeight: 1.6 }}>Our support team will review your issue and reach out within 4 hours on your registered mobile number.</p>
-          <p style={{ fontSize: 12, color: '#555', marginTop: 12 }}>For urgent issues, call <strong style={{ color: Y }}>1800-KR-HELP</strong></p>
+          <p style={{ fontSize: 12, color: '#555', marginTop: 12 }}>For urgent issues, call <strong style={{ color: Y }}>+91 63628 69636</strong></p>
         </div>
         <div style={{ background: '#fff', borderRadius: 16, padding: 16 }}>
           <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Your submitted details:</p>

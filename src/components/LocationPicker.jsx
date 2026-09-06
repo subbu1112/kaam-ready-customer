@@ -188,7 +188,7 @@ export default function LocationPicker({ user, city, value, onChange, onConfirm,
           padding:'11px 13px', marginBottom:12 }}>
           <p style={{ fontSize:12.5, color:'#991B1B', lineHeight:1.6 }}>
             📍 That pin is outside {SERVICE_STATE}. KaamReady currently serves {SERVICE_STATE} only —
-            we're expanding, and you can tell us where to go next at support@kaamready.in.
+            we're expanding, and you can tell us where to go next at thekaamready@gmail.com.
           </p>
         </div>
       )}

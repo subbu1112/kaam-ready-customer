@@ -24,7 +24,7 @@ const LEGAL = {
       },
       {
         heading: '5. Your Rights',
-        body: `You have the right to:\n• Access your personal data at any time\n• Correct inaccurate information in your profile\n• Delete your account and all associated data\n• Opt out of marketing communications\n• Request a copy of your data\n\nContact support@kaamready.in to exercise any of these rights.`
+        body: `You have the right to:\n• Access your personal data at any time\n• Correct inaccurate information in your profile\n• Delete your account and all associated data\n• Opt out of marketing communications\n• Request a copy of your data\n\nContact thekaamready@gmail.com to exercise any of these rights.`
       },
       {
         heading: '6. Cookies & Tracking',
@@ -36,7 +36,7 @@ const LEGAL = {
       },
       {
         heading: '8. Contact Us',
-        body: `Privacy Officer: Kaam Ready Technologies\nEmail: privacy@kaamready.in\nAddress: Bengaluru, Karnataka 560001\nPhone: 1800-KR-HELP`
+        body: `Privacy Officer: Kaam Ready Technologies\nEmail: thekaamready@gmail.com\nAddress: Bengaluru, Karnataka 560001\nPhone: +91 63628 69636`
       },
     ]
   },
@@ -94,7 +94,7 @@ const LEGAL = {
       },
       {
         heading: 'Refund Process',
-        body: `1. Raise a dispute via the app (Bookings → Report Problem)\n2. Our team reviews within 24–48 hours\n3. If eligible, refund is initiated to your UPI account\n4. Refund credit time: 3–7 business days (depends on your bank)\n\nFor urgent issues, call 1800-KR-HELP.`
+        body: `1. Raise a dispute via the app (Bookings → Report Problem)\n2. Our team reviews within 24–48 hours\n3. If eligible, refund is initiated to your UPI account\n4. Refund credit time: 3–7 business days (depends on your bank)\n\nFor urgent issues, call +91 63628 69636.`
       },
       {
         heading: 'Refund Amounts',
@@ -132,15 +132,15 @@ const LEGAL = {
     sections: [
       {
         heading: 'Grievance Officer',
-        body: `In accordance with the Information Technology Act, 2000 and the rules made thereunder, and the Digital Personal Data Protection Act, 2023, the Grievance Officer details are below:\n\nName: Grievance Officer, Kaam Ready Technologies\nEmail: grievance@kaamready.in\nPhone: 6362869636\nAddress: Bengaluru, Karnataka 560001\n\nWe acknowledge complaints within 24 hours and aim to resolve them within 15 days.`
+        body: `In accordance with the Information Technology Act, 2000 and the rules made thereunder, and the Digital Personal Data Protection Act, 2023, the Grievance Officer details are below:\n\nName: Grievance Officer, Kaam Ready Technologies\nEmail: thekaamready@gmail.com\nPhone: 6362869636\nAddress: Bengaluru, Karnataka 560001\n\nWe acknowledge complaints within 24 hours and aim to resolve them within 15 days.`
       },
       {
         heading: 'Customer Support',
-        body: `For general help, bookings, refunds or payment issues:\n\nEmail: support@kaamready.in\nPhone: 6362869636\nHours: Mon–Sun, 8 AM – 10 PM\n\nYou can also raise a ticket from Help & Support in the app.`
+        body: `For general help, bookings, refunds or payment issues:\n\nEmail: thekaamready@gmail.com\nPhone: 6362869636\nHours: Mon–Sun, 8 AM – 10 PM\n\nYou can also raise a ticket from Help & Support in the app.`
       },
       {
         heading: 'Data Protection Requests',
-        body: `To access, correct, or delete your personal data, or to withdraw consent, email privacy@kaamready.in or use "Delete My Account" in your Profile. We process verified requests within statutory timelines.`
+        body: `To access, correct, or delete your personal data, or to withdraw consent, email thekaamready@gmail.com or use "Delete My Account" in your Profile. We process verified requests within statutory timelines.`
       },
     ]
   },
@@ -167,7 +167,7 @@ const LEGAL = {
       },
       {
         heading: 'Contact',
-        body: `Kaam Ready Technologies\nBengaluru, Karnataka, India\nEmail: support@kaamready.in\nPhone: 6362869636`
+        body: `Kaam Ready Technologies\nBengaluru, Karnataka, India\nEmail: thekaamready@gmail.com\nPhone: 6362869636`
       },
     ],
     founders: [
@@ -223,7 +223,7 @@ export default function LegalScreen({ section = 'privacy', onBack }) {
         {/* Contact footer */}
         <div style={{ background: Y + '33', border: '1.5px solid ' + Y, borderRadius: 14, padding: 16, textAlign: 'center' }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: BK, marginBottom: 4 }}>Questions about this policy?</p>
-          <p style={{ fontSize: 12, color: '#555' }}>Email us at <strong>legal@kaamready.in</strong><br />or call 1800-KR-HELP</p>
+          <p style={{ fontSize: 12, color: '#555' }}>Email us at <strong>thekaamready@gmail.com</strong><br />or call +91 63628 69636</p>
         </div>
 
         <div style={{ height: 16 }} />
