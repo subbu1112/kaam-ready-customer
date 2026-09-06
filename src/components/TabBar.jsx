@@ -10,7 +10,7 @@ const TABS = [
 export default function TabBar({ tab, setTab }) {
   return (
     <div style={{ background:'#fff', borderTop:'1px solid #E5E5EA',
-      display:'flex', padding:'8px 0 12px', flexShrink:0 }}>
+      display:'flex', padding:'8px 0 12px', paddingBottom:'calc(12px + env(safe-area-inset-bottom, 0px))', flexShrink:0 }}>
       {TABS.map(tb => (
         <button key={tb.id} onClick={() => setTab(tb.id)}
           style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
