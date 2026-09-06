@@ -1,0 +1,46 @@
+name: Publish AAB as a release
+
+# The build workflow stores the bundle as an Actions artifact, which is only
+# downloadable through Azure blob storage. This republishes that same artifact
+# as a release asset so it can be fetched over plain HTTPS from GitHub.
+
+on:
+  workflow_dispatch:
+    inputs:
+      runId:
+        description: "Workflow run id that produced the bundle"
+        required: true
+      tag:
+        description: "Release tag to create"
+        required: true
+        default: "aab-v11"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the bundle from that run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.inputs.runId }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: dist
+          merge-multiple: true
+
+      - name: Show what came back
+        run: ls -lhR dist
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          gh release create "${{ github.event.inputs.tag }}" \
+            dist/app-release-bundle.aab dist/app-release-signed.apk \
+            --title "Kaam Ready ${{ github.event.inputs.tag }}" \
+            --notes "Signed bundle from run ${{ github.event.inputs.runId }}." \
+            --repo "${{ github.repository }}"
