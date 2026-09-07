@@ -179,7 +179,14 @@ export default function BookScreen({ user, profile, city, selSvc, setTab, showTo
       customer_phone: prof?.phone || profile?.phone || null,
       preferred_worker_id: rebookWorker?.id || null,
     }).select().single()
-    if (error) { showToast('Error: '+error.message); setStep(0); return }
+    if (error) {
+      // Policy refusals from the database (blocked account, outside the service
+      // area) are written for the customer to read — show them as-is rather
+      // than dressing them up as a technical error.
+      const policy = /blocked|serves Karnataka|does not operate/i.test(error.message || '')
+      showToast(policy ? error.message : 'Error: ' + error.message)
+      setStep(0); return
+    }
     setBooking(data)
     notifyBooked(data)
     pushToWorkers(data) // push notification to workers' devices via OneSignal
