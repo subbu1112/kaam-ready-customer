@@ -80,8 +80,17 @@ if ('serviceWorker' in navigator) {
   }
 }
 
-OneSignal.init({
-  appId: import.meta.env.VITE_ONESIGNAL_APP_ID || '4695fddf-8063-4115-a666-f8e77ff67229',
+// A placeholder left in .env is a truthy string, so check for it explicitly
+// rather than letting it through as the app id.
+const OS_ENV = import.meta.env.VITE_ONESIGNAL_APP_ID
+const OS_APP_ID = (OS_ENV && !/^YOUR_/i.test(OS_ENV))
+  ? OS_ENV
+  : '4695fddf-8063-4115-a666-f8e77ff67229'
+
+// The init promise is exposed so App.jsx can wait for it before calling
+// OneSignal.login / addTags once the customer is signed in.
+window.krPushReady = OneSignal.init({
+  appId: OS_APP_ID,
   allowLocalhostAsSecureOrigin: true,
 }).catch(console.error)
 

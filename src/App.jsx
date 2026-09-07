@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { sb } from './lib/supabase'
+import OneSignal from 'react-onesignal'
 import TabBar  from './components/TabBar'
 import Toast   from './components/Toast'
 import TermsModal, { termsAccepted, acceptTerms } from './components/TermsModal'
@@ -131,6 +132,24 @@ export default function App() {
     try { await sb.from('profiles').upsert(patch, { onConflict: 'id' }) } catch { /* non-blocking */ }
   }
 
+  // Tie this device's push subscription to the account. The server targets a
+  // customer by the `user_id` tag (worker assigned, job complete, worker
+  // cancelled); without these tags every one of those pushes matches no
+  // device and OneSignal drops it silently. Non-blocking by design.
+  async function registerPush(uid, prof) {
+    try {
+      await (window.krPushReady || Promise.resolve())
+      await OneSignal.login(uid)
+      await OneSignal.User.addTags({
+        role:    'customer',
+        user_id: uid,
+        city:    prof?.city || '',
+      })
+    } catch (e) {
+      console.warn('Push setup skipped:', e?.message || e)
+    }
+  }
+
   async function loadProfile(uid, authUser) {
     try {
       logConsentOnce(uid)
@@ -139,6 +158,7 @@ export default function App() {
         .select('city,phone,name,full_name,email,avatar_url').eq('id', uid).maybeSingle()
       setProfile(data || null)
       if (data?.city) setCity(data.city)
+      registerPush(uid, data)
 
       if (!data?.city)        setScreen('city')
       else if (!data?.phone)  setScreen('phone')   // Google sign-in: no number yet
